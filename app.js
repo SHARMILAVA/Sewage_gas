@@ -177,17 +177,28 @@ Object.keys(TUNNEL_CONFIG).forEach(tid => {
 });
 
 // ============================================
-// DATA SIMULATION
+// DATA GENERATION (DATASET-DRIVEN)
 // ============================================
 function generateSimulatedData(tunnelId) {
     const config = TUNNEL_CONFIG[tunnelId];
+
+    // Use dataset-derived values if available for this tunnel
+    if (typeof DATASET_VALUES !== 'undefined' && DATASET_VALUES[tunnelId]) {
+        const point = getDatasetPoint(tunnelId);
+        if (point) {
+            config.gases.forEach(gas => {
+                if (point[gas.id] !== undefined) {
+                    appState.tunnelData[tunnelId][gas.id] = point[gas.id];
+                }
+            });
+            return;
+        }
+    }
+
+    // Fallback to random simulation
     config.gases.forEach(gas => {
         const val = gas.simBase + (Math.random() - 0.5) * gas.simRange;
-        if (gas.isDeficiency) {
-            appState.tunnelData[tunnelId][gas.id] = Math.max(0, val);
-        } else {
-            appState.tunnelData[tunnelId][gas.id] = Math.max(0, val);
-        }
+        appState.tunnelData[tunnelId][gas.id] = Math.max(0, val);
     });
 }
 
@@ -553,12 +564,12 @@ function renderHomePage() {
     const iconMap = { sewer: 'fa-water', mining: 'fa-hard-hat', stormwater: 'fa-cloud-rain', utility: 'fa-bolt', transportation: 'fa-subway', construction: 'fa-helmet-safety', storage: 'fa-warehouse' };
     const descMap = {
         sewer: 'Real-time monitoring via ESP8266',
-        mining: 'Methane, CO, dust detection',
-        stormwater: 'H₂S, flooding, gas levels',
-        utility: 'Gas leaks, fire, smoke detection',
-        transportation: 'Vehicle emissions, ventilation',
-        construction: 'Blasting gases, dust, NOx',
-        storage: 'Stored gas leaks, pressure'
+        mining: 'Dataset: Gas Classification (Wind Tunnel)',
+        stormwater: 'Dataset: European Stormwater Emissions',
+        utility: 'Dataset: Underground Utility Gas Study',
+        transportation: 'Dataset: UCI Gas Sensor Mixtures',
+        construction: 'Dataset: Dynamic Gas Mixtures',
+        storage: 'Dataset: Underground Storage Monitoring'
     };
 
     let cardsHtml = tunnelKeys.map(tid => `
@@ -567,7 +578,7 @@ function renderHomePage() {
                 <div class="area-card-icon"><i class="fas ${TUNNEL_CONFIG[tid].icon}"></i></div>
                 <h4>${TUNNEL_CONFIG[tid].name}</h4>
                 <p>${descMap[tid]}</p>
-                ${TUNNEL_CONFIG[tid].realtime ? '<span style="color:#00ff88;font-size:10px;"><i class="fas fa-circle" style="font-size:6px;"></i> LIVE DATA</span>' : '<span style="color:#ffd700;font-size:10px;"><i class="fas fa-circle" style="font-size:6px;"></i> SIMULATED</span>'}
+                ${TUNNEL_CONFIG[tid].realtime ? '<span style="color:#00ff88;font-size:10px;"><i class="fas fa-circle" style="font-size:6px;"></i> LIVE DATA</span>' : '<span style="color:#00bfff;font-size:10px;"><i class="fas fa-circle" style="font-size:6px;"></i> DATASET ANALYSIS</span>'}
                 <div class="enter-btn">Enter Area →</div>
             </div>
         </div>
@@ -638,7 +649,7 @@ function renderAnalysisPage(tunnelId) {
     document.getElementById('pageContent').innerHTML = `
         <div class="container-fluid">
             <h2 class="section-title"><i class="fas fa-microscope"></i> Gas Analysis - ${config.name}</h2>
-            ${config.realtime ? '<div style="margin-bottom:15px;"><span style="background:rgba(0,255,136,0.1);color:#00ff88;padding:5px 12px;border-radius:20px;font-size:12px;"><i class="fas fa-satellite-dish"></i> Real-time ESP8266 Data</span></div>' : '<div style="margin-bottom:15px;"><span style="background:rgba(255,215,0,0.1);color:#ffd700;padding:5px 12px;border-radius:20px;font-size:12px;"><i class="fas fa-flask"></i> Simulated Data</span></div>'}
+            ${config.realtime ? '<div style="margin-bottom:15px;"><span style="background:rgba(0,255,136,0.1);color:#00ff88;padding:5px 12px;border-radius:20px;font-size:12px;"><i class="fas fa-satellite-dish"></i> Real-time ESP8266 Data</span></div>' : '<div style="margin-bottom:15px;"><span style="background:rgba(0,191,255,0.1);color:#00bfff;padding:5px 12px;border-radius:20px;font-size:12px;"><i class="fas fa-database"></i> Dataset Analysis</span>' + (typeof DATASET_INFO !== 'undefined' && DATASET_INFO[tunnelId] ? ' <span style="color:#888;font-size:11px;margin-left:8px;" title="' + DATASET_INFO[tunnelId].description + '">Source: ' + DATASET_INFO[tunnelId].source + '</span>' : '') + '</div>'}
             ${gasItemsHtml}
             <div class="risk-gauge-container">
                 <h3>Overall Risk Index</h3>
@@ -974,7 +985,7 @@ function downloadTunnelReport(tunnelId) {
     let report = `UNDERGROUND GAS MONITORING REPORT\n`;
     report += `Location: ${config.name}\n`;
     report += `Generated: ${timestamp}\n`;
-    report += `Data Source: ${config.realtime ? 'Real-Time (ESP8266)' : 'Simulated'}\n`;
+    report += `Data Source: ${config.realtime ? 'Real-Time (ESP8266)' : 'Dataset Analysis'}\n`;
     report += `${'='.repeat(50)}\n\n`;
     report += `OVERALL RISK INDEX: ${riskIndex.toFixed(1)}% - ${riskStatus.label}\n\n`;
     report += `GAS READINGS:\n${'-'.repeat(40)}\n`;
@@ -1126,7 +1137,7 @@ async function refreshData() {
     // Fetch sewer real-time data
     await fetchSewerData();
 
-    // Generate simulated data for other tunnels
+    // Generate dataset-driven data for other tunnels
     generateAllSimulatedData();
 
     // Store historical points
