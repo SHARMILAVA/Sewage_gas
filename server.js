@@ -216,8 +216,8 @@ const server = http.createServer((req, res) => {
         return;
     }
     
-    // Default to index.html for root path
-    let filePath = req.url === '/' ? '/index.html' : req.url;
+    // Default to login.html for root path
+    let filePath = req.url === '/' ? '/login.html' : req.url;
     filePath = path.join(PUBLIC_DIR, filePath);
 
     // Get file extension

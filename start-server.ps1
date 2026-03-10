@@ -26,7 +26,7 @@ try {
 
         $url = $request.Url.LocalPath
         if ($url -eq "/" -or $url -eq "") {
-            $url = "/index.html"
+            $url = "/login.html"
         }
 
         $filePath = Join-Path (Get-Location) $url

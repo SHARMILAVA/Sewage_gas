@@ -1,0 +1,174 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Underground Hazardous Gas Monitoring System</title>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/bootstrap/5.3.0/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="style.css">
+    <link rel="stylesheet" href="app.css">
+</head>
+<body>
+    <!-- Alert Popup Overlay -->
+    <div id="alertOverlay" class="alert-overlay" style="display:none;">
+        <div class="alert-popup">
+            <div class="alert-popup-icon"><i class="fas fa-exclamation-triangle"></i></div>
+            <h3 id="alertPopupTitle">WARNING</h3>
+            <p id="alertPopupMessage">Gas level exceeded safe limits</p>
+            <button class="login-btn" onclick="dismissAlert()">Dismiss</button>
+        </div>
+    </div>
+
+    <!-- Explosion Detail Modal -->
+    <div id="explosionModal" class="alert-overlay" style="display:none;">
+        <div class="explosion-modal-content">
+            <button class="modal-close-btn" onclick="closeExplosionModal()"><i class="fas fa-times"></i></button>
+            <div id="explosionModalBody"></div>
+        </div>
+    </div>
+
+    <!-- Sidebar -->
+    <nav id="sidebar" class="sidebar">
+        <div class="sidebar-header">
+            <i class="fas fa-shield-halved"></i>
+            <span class="sidebar-title">Gas Monitor</span>
+            <button class="sidebar-toggle" id="sidebarToggle" onclick="toggleSidebar()">
+                <i class="fas fa-bars"></i>
+            </button>
+        </div>
+        <ul class="sidebar-menu">
+            <li class="sidebar-item" data-page="home">
+                <a href="#home"><i class="fas fa-home"></i><span>Home</span></a>
+            </li>
+            <li class="sidebar-item" data-page="accounts">
+                <a href="#accounts"><i class="fas fa-user-circle"></i><span>Accounts</span></a>
+            </li>
+            <li class="sidebar-item has-submenu" id="placesMenu">
+                <a href="#" onclick="togglePlacesMenu(event)"><i class="fas fa-map-marker-alt"></i><span>Places</span><i class="fas fa-chevron-down submenu-arrow"></i></a>
+                <ul class="sidebar-submenu" id="placesSubmenu">
+                    <li class="submenu-place" data-tunnel="sewer">
+                        <a href="#" onclick="toggleTunnelMenu(event,'sewer')"><i class="fas fa-water"></i><span>Sewer Tunnel</span><i class="fas fa-chevron-down submenu-arrow"></i></a>
+                        <ul class="tunnel-submenu" id="sewer-submenu">
+                            <li><a href="#sewer/analysis"><i class="fas fa-microscope"></i> Analysis</a></li>
+                            <li><a href="#sewer/report"><i class="fas fa-file-alt"></i> Report</a></li>
+                            <li><a href="#sewer/graph"><i class="fas fa-chart-line"></i> Graph</a></li>
+                            <li><a href="#sewer/prediction"><i class="fas fa-brain"></i> Prediction</a></li>
+                        </ul>
+                    </li>
+                    <li class="submenu-place" data-tunnel="mining">
+                        <a href="#" onclick="toggleTunnelMenu(event,'mining')"><i class="fas fa-hard-hat"></i><span>Mining Tunnel</span><i class="fas fa-chevron-down submenu-arrow"></i></a>
+                        <ul class="tunnel-submenu" id="mining-submenu">
+                            <li><a href="#mining/analysis"><i class="fas fa-microscope"></i> Analysis</a></li>
+                            <li><a href="#mining/report"><i class="fas fa-file-alt"></i> Report</a></li>
+                            <li><a href="#mining/graph"><i class="fas fa-chart-line"></i> Graph</a></li>
+                            <li><a href="#mining/prediction"><i class="fas fa-brain"></i> Prediction</a></li>
+                        </ul>
+                    </li>
+                    <li class="submenu-place" data-tunnel="stormwater">
+                        <a href="#" onclick="toggleTunnelMenu(event,'stormwater')"><i class="fas fa-cloud-rain"></i><span>Stormwater Tunnel</span><i class="fas fa-chevron-down submenu-arrow"></i></a>
+                        <ul class="tunnel-submenu" id="stormwater-submenu">
+                            <li><a href="#stormwater/analysis"><i class="fas fa-microscope"></i> Analysis</a></li>
+                            <li><a href="#stormwater/report"><i class="fas fa-file-alt"></i> Report</a></li>
+                            <li><a href="#stormwater/graph"><i class="fas fa-chart-line"></i> Graph</a></li>
+                            <li><a href="#stormwater/prediction"><i class="fas fa-brain"></i> Prediction</a></li>
+                        </ul>
+                    </li>
+                    <li class="submenu-place" data-tunnel="utility">
+                        <a href="#" onclick="toggleTunnelMenu(event,'utility')"><i class="fas fa-bolt"></i><span>Utility Tunnel</span><i class="fas fa-chevron-down submenu-arrow"></i></a>
+                        <ul class="tunnel-submenu" id="utility-submenu">
+                            <li><a href="#utility/analysis"><i class="fas fa-microscope"></i> Analysis</a></li>
+                            <li><a href="#utility/report"><i class="fas fa-file-alt"></i> Report</a></li>
+                            <li><a href="#utility/graph"><i class="fas fa-chart-line"></i> Graph</a></li>
+                            <li><a href="#utility/prediction"><i class="fas fa-brain"></i> Prediction</a></li>
+                        </ul>
+                    </li>
+                    <li class="submenu-place" data-tunnel="transportation">
+                        <a href="#" onclick="toggleTunnelMenu(event,'transportation')"><i class="fas fa-subway"></i><span>Transportation Tunnel</span><i class="fas fa-chevron-down submenu-arrow"></i></a>
+                        <ul class="tunnel-submenu" id="transportation-submenu">
+                            <li><a href="#transportation/analysis"><i class="fas fa-microscope"></i> Analysis</a></li>
+                            <li><a href="#transportation/report"><i class="fas fa-file-alt"></i> Report</a></li>
+                            <li><a href="#transportation/graph"><i class="fas fa-chart-line"></i> Graph</a></li>
+                            <li><a href="#transportation/prediction"><i class="fas fa-brain"></i> Prediction</a></li>
+                        </ul>
+                    </li>
+                    <li class="submenu-place" data-tunnel="construction">
+                        <a href="#" onclick="toggleTunnelMenu(event,'construction')"><i class="fas fa-helmet-safety"></i><span>Construction Tunnel</span><i class="fas fa-chevron-down submenu-arrow"></i></a>
+                        <ul class="tunnel-submenu" id="construction-submenu">
+                            <li><a href="#construction/analysis"><i class="fas fa-microscope"></i> Analysis</a></li>
+                            <li><a href="#construction/report"><i class="fas fa-file-alt"></i> Report</a></li>
+                            <li><a href="#construction/graph"><i class="fas fa-chart-line"></i> Graph</a></li>
+                            <li><a href="#construction/prediction"><i class="fas fa-brain"></i> Prediction</a></li>
+                        </ul>
+                    </li>
+                    <li class="submenu-place" data-tunnel="storage">
+                        <a href="#" onclick="toggleTunnelMenu(event,'storage')"><i class="fas fa-warehouse"></i><span>Storage Caverns</span><i class="fas fa-chevron-down submenu-arrow"></i></a>
+                        <ul class="tunnel-submenu" id="storage-submenu">
+                            <li><a href="#storage/analysis"><i class="fas fa-microscope"></i> Analysis</a></li>
+                            <li><a href="#storage/report"><i class="fas fa-file-alt"></i> Report</a></li>
+                            <li><a href="#storage/graph"><i class="fas fa-chart-line"></i> Graph</a></li>
+                            <li><a href="#storage/prediction"><i class="fas fa-brain"></i> Prediction</a></li>
+                        </ul>
+                    </li>
+                </ul>
+            </li>
+            <li class="sidebar-item" data-page="alerts">
+                <a href="#alerts"><i class="fas fa-bell"></i><span>Alerts</span><span class="alert-badge" id="alertBadge" style="display:none;">0</span></a>
+            </li>
+        </ul>
+        <div class="sidebar-footer">
+            <a href="#" onclick="logout()"><i class="fas fa-sign-out-alt"></i><span>Logout</span></a>
+        </div>
+    </nav>
+
+    <!-- Main Content -->
+    <div id="mainContent" class="main-content">
+        <!-- Top Bar -->
+        <header class="dashboard-header app-header">
+            <div class="container-fluid">
+                <div class="row align-items-center">
+                    <div class="col-md-6">
+                        <h1 class="header-title" id="pageTitle">
+                            <i class="fas fa-home"></i> Underground Gas Monitoring System
+                        </h1>
+                    </div>
+                    <div class="col-md-6 text-end">
+                        <div class="system-status">
+                            <span class="status-indicator" id="systemStatus"></span>
+                            <span class="status-text">System: <span id="statusText">Online</span></span>
+                        </div>
+                        <div class="last-updated">
+                            <span id="userDisplay"></span> | Last Updated: <span id="lastUpdated">--:--:--</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </header>
+
+        <!-- Dynamic Page Content -->
+        <main class="dashboard-main" id="pageContent">
+            <!-- Content rendered dynamically by app.js -->
+        </main>
+
+        <!-- Footer -->
+        <footer class="dashboard-footer">
+            <div class="container-fluid">
+                <div class="row">
+                    <div class="col-md-6">
+                        <p>&copy; 2026 Underground Hazardous Gas Monitoring System. All rights reserved.</p>
+                    </div>
+                    <div class="col-md-6 text-end">
+                        <a href="index.html" target="_blank">Legacy Dashboard</a> |
+                        <a href="#" onclick="toggleDarkMode()">Dark/Light Mode</a>
+                    </div>
+                </div>
+            </div>
+        </footer>
+    </div>
+
+    <!-- Scripts -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/bootstrap/5.3.0/js/bootstrap.bundle.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/3.9.1/chart.min.js"></script>
+    <script src="app.js"></script>
+</body>
+</html>
