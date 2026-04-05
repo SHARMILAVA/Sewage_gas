@@ -1,4 +1,5 @@
 // Simple HTTP Server for Sewage Gas Dashboard
+require('dotenv').config();
 const http = require('http');
 const https = require('https');
 const fs = require('fs');
@@ -8,8 +9,8 @@ const PORT = 8000;
 const PUBLIC_DIR = __dirname;
 
 // ThingSpeak Configuration
-const THINGSPEAK_CHANNEL_ID = '3277165';
-const THINGSPEAK_READ_API_KEY = 'MWUXOBPOKXDK7TI5';
+const THINGSPEAK_CHANNEL_ID = process.env.THINGSPEAK_CHANNEL_ID || '3277165';
+const THINGSPEAK_READ_API_KEY = process.env.THINGSPEAK_READ_API_KEY || 'MWUXOBPOKXDK7TI5';
 
 // Mobile Notification System
 const notifications = require('./notifications.js');
@@ -27,30 +28,22 @@ const STATUS_REPORT_INTERVAL = 3600000;
 /**
  * Calculate Risk Index (same formula as frontend)
  */
-function calculateRiskIndex(ch4, h2s, co, o2) {
+function calculateRiskIndex(ch4, nh3, alcohol) {
     const SAFE_LIMITS = {
         CH4: 5000,
-        H2S: 10,
-        CO: 35,
-        O2_MIN: 19.5,
-        O2_MAX: 23.5
+        NH3: 25,
+        ALCOHOL: 200
     };
     
     // Normalize gas levels to 0-1 scale
     const ch4_norm = Math.min(ch4 / SAFE_LIMITS.CH4, 1.0);
-    const h2s_norm = Math.min(h2s / SAFE_LIMITS.H2S, 1.0);
-    const co_norm = Math.min(co / SAFE_LIMITS.CO, 1.0);
-    
-    // O2 deviation from normal range
-    const o2_midpoint = (SAFE_LIMITS.O2_MIN + SAFE_LIMITS.O2_MAX) / 2;
-    const o2_safe_range = (SAFE_LIMITS.O2_MAX - SAFE_LIMITS.O2_MIN) / 2;
-    const o2_deviation = Math.abs(o2 - o2_midpoint) / o2_safe_range;
+    const nh3_norm = Math.min(nh3 / SAFE_LIMITS.NH3, 1.0);
+    const alcohol_norm = Math.min(alcohol / SAFE_LIMITS.ALCOHOL, 1.0);
     
     // Weighted risk calculation
     const riskIndex = (0.3 * ch4_norm) +
-                     (0.3 * h2s_norm) +
-                     (0.2 * co_norm) +
-                     (0.2 * Math.min(o2_deviation, 1.0));
+                     (0.35 * nh3_norm) +
+                     (0.35 * alcohol_norm);
     
     return Math.min(riskIndex * 100, 100);
 }
@@ -75,27 +68,25 @@ function performSafetyCheck() {
                 if (jsonData.feeds && jsonData.feeds.length > 0) {
                     const latestFeed = jsonData.feeds[0];
                     
-                    // Extract sensor values
+                    // Extract sensor values (MQ-4, MQ-2 proxy, MQ-3)
                     const ch4 = parseFloat(latestFeed.field1) || 0;
-                    const h2s = parseFloat(latestFeed.field2) || 0;
-                    const co = parseFloat(latestFeed.field3) || 0;
-                    const o2 = parseFloat(latestFeed.field4) || 21;
+                    const nh3 = parseFloat(latestFeed.field2) || 0;
+                    const alcohol = parseFloat(latestFeed.field3) || 0;
                     const temperature = parseFloat(latestFeed.field5) || 25;
                     
                     // Calculate risk index
-                    const riskIndex = calculateRiskIndex(ch4, h2s, co, o2);
+                    const riskIndex = calculateRiskIndex(ch4, nh3, alcohol);
                     
                     // Prepare sensor data for notification check
                     const sensorData = {
                         ch4,
-                        h2s,
-                        co,
-                        o2,
+                        nh3,
+                        alcohol,
                         temperature,
                         riskIndex
                     };
                     
-                    console.log(`🔍 Safety Check - Risk: ${riskIndex.toFixed(1)}%, H2S: ${h2s.toFixed(2)} PPM, CH4: ${ch4.toFixed(0)} PPM`);
+                    console.log(`🔍 Safety Check - Risk: ${riskIndex.toFixed(1)}%, MQ-2: ${nh3.toFixed(2)} PPM, MQ-4: ${ch4.toFixed(0)} PPM, MQ-3: ${alcohol.toFixed(2)} PPM`);
                     
                     // Check if alert should be sent
                     notifications.checkAndAlert(sensorData);
@@ -130,22 +121,20 @@ function performStatusReport(forceImmediate = false) {
                 if (jsonData.feeds && jsonData.feeds.length > 0) {
                     const latestFeed = jsonData.feeds[0];
                     
-                    // Extract sensor values
+                    // Extract sensor values (MQ-4, MQ-2 proxy, MQ-3)
                     const ch4 = parseFloat(latestFeed.field1) || 0;
-                    const h2s = parseFloat(latestFeed.field2) || 0;
-                    const co = parseFloat(latestFeed.field3) || 0;
-                    const o2 = parseFloat(latestFeed.field4) || 21;
+                    const nh3 = parseFloat(latestFeed.field2) || 0;
+                    const alcohol = parseFloat(latestFeed.field3) || 0;
                     const temperature = parseFloat(latestFeed.field5) || 25;
                     
                     // Calculate risk index
-                    const riskIndex = calculateRiskIndex(ch4, h2s, co, o2);
+                    const riskIndex = calculateRiskIndex(ch4, nh3, alcohol);
                     
                     // Prepare sensor data
                     const sensorData = {
                         ch4,
-                        h2s,
-                        co,
-                        o2,
+                        nh3,
+                        alcohol,
                         temperature,
                         riskIndex
                     };
@@ -186,6 +175,27 @@ function startSafetyMonitoring() {
 }
 
 const server = http.createServer((req, res) => {
+    // Manual alert test endpoint (used by dashboard Test Alert button)
+    if (req.url.startsWith('/api/test-alert')) {
+        const sensorData = {
+            ch4: 6500,
+            nh3: 60,
+            alcohol: 450,
+            temperature: 35,
+            riskIndex: 100
+        };
+
+        console.log('🧪 Manual Test Alert requested from dashboard UI');
+        notifications.checkAndAlert(sensorData, { force: true });
+
+        res.writeHead(200, {
+            'Content-Type': 'application/json',
+            'Access-Control-Allow-Origin': '*'
+        });
+        res.end(JSON.stringify({ ok: true, message: 'Manual alert test triggered' }));
+        return;
+    }
+
     // API Proxy endpoint for ThingSpeak
     if (req.url.startsWith('/api/thingspeak')) {
         const url = `https://api.thingspeak.com/channels/${THINGSPEAK_CHANNEL_ID}/feeds.json?api_key=${THINGSPEAK_READ_API_KEY}&results=100`;

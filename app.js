@@ -18,20 +18,14 @@ const TUNNEL_CONFIG = {
         icon: 'fa-water',
         realtime: true,
         gases: [
-            { id: 'h2s', name: 'Hydrogen Sulfide', symbol: 'H₂S', unit: 'PPM', safeLimit: 10, sensor: 'MQ-136', simBase: 8, simRange: 15 },
-            { id: 'ch4', name: 'Methane', symbol: 'CH₄', unit: 'PPM', safeLimit: 5000, sensor: 'MQ-4', simBase: 1500, simRange: 2000 },
-            { id: 'nh3', name: 'Ammonia', symbol: 'NH₃', unit: 'PPM', safeLimit: 25, sensor: 'MQ-135', simBase: 10, simRange: 20 },
-            { id: 'co2', name: 'Carbon Dioxide', symbol: 'CO₂', unit: 'PPM', safeLimit: 5000, sensor: 'MQ-135', simBase: 2000, simRange: 3000 },
-            { id: 'o2', name: 'Oxygen', symbol: 'O₂', unit: '%', safeLimit: 19.5, isDeficiency: true, sensor: 'Electrochemical', simBase: 20.5, simRange: 2 },
-            { id: 'temperature', name: 'Temperature', symbol: 'Temp', unit: '°C', safeLimit: 40, sensor: 'DHT11', simBase: 26, simRange: 8 },
-            { id: 'humidity', name: 'Humidity', symbol: 'Hum', unit: '%', safeLimit: 80, sensor: 'DHT11', simBase: 65, simRange: 20 }
+            { id: 'ch4', name: 'Methane Explosion Risk', symbol: 'CH₄ / MQ-4', unit: 'PPM', safeLimit: 5000, sensor: 'MQ-4', simBase: 1500, simRange: 2000 },
+            { id: 'nh3', name: 'Toxic Sewer Gas Index', symbol: 'MQ-2', unit: 'PPM', safeLimit: 25, sensor: 'MQ-2', simBase: 10, simRange: 20 },
+            { id: 'alcohol', name: 'Flammable VOC Vapor', symbol: 'MQ-3', unit: 'PPM', safeLimit: 200, sensor: 'MQ-3', simBase: 40, simRange: 60 }
         ],
         predictions: [
-            { condition: 'If H₂S reaches 50 PPM', effects: ['Loss of sense of smell', 'Severe lung damage', 'Pulmonary edema risk'] },
             { condition: 'If CH₄ reaches 50,000 PPM (5%)', effects: ['Lower Explosive Limit reached', 'Explosion hazard with any ignition source'] },
-            { condition: 'If O₂ drops below 16%', effects: ['Impaired judgement', 'Unconsciousness within minutes', 'Death if prolonged'] },
-            { condition: 'If NH₃ reaches 300 PPM', effects: ['Severe chemical burns to eyes/skin', 'Immediate respiratory failure'] },
-            { condition: 'If CO₂ reaches 40,000 PPM', effects: ['Immediate headache and dizziness', 'Loss of consciousness', 'Life-threatening'] }
+            { condition: 'If MQ-2 proxy gas reaches 100 PPM', effects: ['Severe respiratory irritation', 'Confined-space toxicity risk'] },
+            { condition: 'If MQ-3 alcohol vapor exceeds 500 PPM', effects: ['Flammable vapor buildup', 'Ignition risk in enclosed tunnel'] }
         ]
     },
     mining: {
@@ -163,7 +157,15 @@ const appState = {
     alerts: [],
     sewerRealtimeData: null,
     refreshTimer: null,
-    gasLeakActive: false
+    gasLeakActive: false,
+    sewerTestAlert: {
+        active: false,
+        timer: null,
+        startedAt: 0,
+        durationMs: 10000,
+        peakTriggered: false,
+        baseValues: null
+    }
 };
 
 // Initialize tunnel data
@@ -228,6 +230,10 @@ function storeHistoricalPoint(tunnelId) {
 // THINGSPEAK INTEGRATION (SEWER ONLY)
 // ============================================
 async function fetchSewerData() {
+    if (appState.sewerTestAlert.active) {
+        return true;
+    }
+
     try {
         const response = await fetch('/api/thingspeak');
         if (!response.ok) throw new Error('API error');
@@ -235,14 +241,8 @@ async function fetchSewerData() {
         if (data.feeds && data.feeds.length > 0) {
             const latest = data.feeds[data.feeds.length - 1];
             appState.tunnelData.sewer.ch4 = parseFloat(latest.field1) || 0;
-            appState.tunnelData.sewer.h2s = parseFloat(latest.field2) || 0;
-            // Map CO to nh3 field if not available separately
-            const co = parseFloat(latest.field3) || 0;
-            appState.tunnelData.sewer.nh3 = co * 0.5; // approximate
-            appState.tunnelData.sewer.co2 = parseFloat(latest.field3) ? parseFloat(latest.field3) * 50 : 1500;
-            appState.tunnelData.sewer.o2 = parseFloat(latest.field4) || 20.9;
-            appState.tunnelData.sewer.temperature = parseFloat(latest.field5) || 25;
-            appState.tunnelData.sewer.humidity = 65 + Math.random() * 10;
+            appState.tunnelData.sewer.nh3 = parseFloat(latest.field2) || 0;
+            appState.tunnelData.sewer.alcohol = parseFloat(latest.field3) || 0;
 
             // Store historical from all feeds
             appState.historicalData.sewer.timestamps = [];
@@ -250,13 +250,9 @@ async function fetchSewerData() {
             data.feeds.forEach(feed => {
                 const time = new Date(feed.created_at);
                 appState.historicalData.sewer.timestamps.push(time.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' }));
-                appState.historicalData.sewer.h2s.push(parseFloat(feed.field2) || 0);
                 appState.historicalData.sewer.ch4.push(parseFloat(feed.field1) || 0);
-                appState.historicalData.sewer.nh3.push((parseFloat(feed.field3) || 0) * 0.5);
-                appState.historicalData.sewer.co2.push((parseFloat(feed.field3) || 0) * 50 || 1500);
-                appState.historicalData.sewer.o2.push(parseFloat(feed.field4) || 20.9);
-                appState.historicalData.sewer.temperature.push(parseFloat(feed.field5) || 25);
-                appState.historicalData.sewer.humidity.push(65 + Math.random() * 10);
+                appState.historicalData.sewer.nh3.push(parseFloat(feed.field2) || 0);
+                appState.historicalData.sewer.alcohol.push(parseFloat(feed.field3) || 0);
             });
 
             document.getElementById('systemStatus').className = 'status-indicator';
@@ -264,13 +260,75 @@ async function fetchSewerData() {
             return true;
         }
     } catch (e) {
-        console.log('ThingSpeak unavailable, using simulated data for sewer');
+        console.log('ThingSpeak unavailable for sewer live data');
     }
-    // Fallback to simulation
-    generateSimulatedData('sewer');
+
     document.getElementById('systemStatus').className = 'status-indicator offline';
-    document.getElementById('statusText').textContent = 'Simulated';
+    document.getElementById('statusText').textContent = 'ThingSpeak Disconnected';
     return false;
+}
+
+function updateCurrentViewAfterDataChange() {
+    const hash = window.location.hash.replace('#', '') || 'home';
+    const parts = hash.split('/');
+    if (parts[1] === 'analysis') renderAnalysisPage(parts[0]);
+    else if (parts[1] === 'report') renderReportPage(parts[0]);
+}
+
+function triggerBackendManualAlert() {
+    fetch('/api/test-alert')
+        .then(() => console.log('🧪 Backend manual alert triggered (Twilio/Email test)'))
+        .catch((err) => console.error('❌ Failed to trigger backend manual alert:', err.message));
+}
+
+function startSewerTestAlert() {
+    const testState = appState.sewerTestAlert;
+    if (testState.active) return;
+
+    testState.active = true;
+    testState.startedAt = Date.now();
+    testState.peakTriggered = false;
+    testState.baseValues = {
+        ch4: appState.tunnelData.sewer.ch4 || 0,
+        nh3: appState.tunnelData.sewer.nh3 || 0,
+        alcohol: appState.tunnelData.sewer.alcohol || 0
+    };
+
+    // Trigger manual alert path immediately so Twilio/email test starts without waiting.
+    triggerBackendManualAlert();
+
+    if (testState.timer) {
+        clearInterval(testState.timer);
+    }
+
+    testState.timer = setInterval(() => {
+        const elapsed = Date.now() - testState.startedAt;
+        const progress = Math.min(elapsed / testState.durationMs, 1);
+        const targets = {
+            ch4: TUNNEL_CONFIG.sewer.gases.find(g => g.id === 'ch4').safeLimit * 1.3,
+            nh3: TUNNEL_CONFIG.sewer.gases.find(g => g.id === 'nh3').safeLimit * 2.4,
+            alcohol: TUNNEL_CONFIG.sewer.gases.find(g => g.id === 'alcohol').safeLimit * 2.2
+        };
+
+        appState.tunnelData.sewer.ch4 = testState.baseValues.ch4 + (targets.ch4 - testState.baseValues.ch4) * progress;
+        appState.tunnelData.sewer.nh3 = testState.baseValues.nh3 + (targets.nh3 - testState.baseValues.nh3) * progress;
+        appState.tunnelData.sewer.alcohol = testState.baseValues.alcohol + (targets.alcohol - testState.baseValues.alcohol) * progress;
+
+        storeHistoricalPoint('sewer');
+        checkAlerts();
+        document.getElementById('lastUpdated').textContent = new Date().toLocaleTimeString();
+        updateCurrentViewAfterDataChange();
+
+        if (progress >= 1) {
+            clearInterval(testState.timer);
+            testState.timer = null;
+            testState.active = false;
+
+            fetchSewerData().then(() => {
+                updateCurrentViewAfterDataChange();
+            });
+        }
+    }, 1000);
 }
 
 // ============================================
@@ -320,6 +378,7 @@ function getGasEffect(gasId, riskLevel) {
         h2s: { safe: 'No adverse effects', moderate: 'Eye irritation, breathing difficulty', high: 'Severe respiratory distress', critical: 'Immediate life-threatening' },
         ch4: { safe: 'Normal levels', moderate: 'Accumulation detected', high: 'Explosion risk increasing', critical: 'Explosion hazard - evacuate immediately' },
         nh3: { safe: 'No irritation', moderate: 'Mild nasal irritation', high: 'Severe respiratory burns', critical: 'Life-threatening pulmonary damage' },
+        alcohol: { safe: 'No flammable vapor concern', moderate: 'VOC vapors rising', high: 'Potential ignition source risk', critical: 'Flammable atmosphere risk' },
         co2: { safe: 'Normal concentration', moderate: 'Headache possible', high: 'Dizziness and confusion', critical: 'Suffocation risk' },
         co: { safe: 'Normal levels', moderate: 'Mild headache after prolonged exposure', high: 'Severe headache, nausea', critical: 'Loss of consciousness, fatal' },
         o2: { safe: 'Normal oxygen levels', moderate: 'Slight shortness of breath', high: 'Impaired judgement, fatigue', critical: 'Suffocation - unconsciousness' },
@@ -646,10 +705,26 @@ function renderAnalysisPage(tunnelId) {
         `;
     }
 
+    let sewerTestHtml = '';
+    if (tunnelId === 'sewer') {
+        const testingNow = appState.sewerTestAlert.active;
+        sewerTestHtml = `
+            <div style="margin-bottom:15px;display:flex;align-items:center;gap:10px;">
+                <button class="btn btn-action btn-warning" onclick="startSewerTestAlert()" ${testingNow ? 'disabled' : ''}>
+                    <i class="fas fa-flask"></i> Test Alert
+                </button>
+                <span style="color:${testingNow ? '#ffd700' : '#888'};font-size:12px;">
+                    ${testingNow ? 'Running 10s alert ramp and Twilio/email trigger...' : 'Manual check: ramps MQ-2/MQ-3/MQ-4 for 10s, then returns to ThingSpeak live values'}
+                </span>
+            </div>
+        `;
+    }
+
     document.getElementById('pageContent').innerHTML = `
         <div class="container-fluid">
             <h2 class="section-title"><i class="fas fa-microscope"></i> Gas Analysis - ${config.name}</h2>
             ${config.realtime ? '<div style="margin-bottom:15px;"><span style="background:rgba(0,255,136,0.1);color:#00ff88;padding:5px 12px;border-radius:20px;font-size:12px;"><i class="fas fa-satellite-dish"></i> Real-time ESP8266 Data</span></div>' : '<div style="margin-bottom:15px;"><span style="background:rgba(0,191,255,0.1);color:#00bfff;padding:5px 12px;border-radius:20px;font-size:12px;"><i class="fas fa-database"></i> Dataset Analysis</span>' + (typeof DATASET_INFO !== 'undefined' && DATASET_INFO[tunnelId] ? ' <span style="color:#888;font-size:11px;margin-left:8px;" title="' + DATASET_INFO[tunnelId].description + '">Source: ' + DATASET_INFO[tunnelId].source + '</span>' : '') + '</div>'}
+            ${sewerTestHtml}
             ${gasItemsHtml}
             <div class="risk-gauge-container">
                 <h3>Overall Risk Index</h3>
@@ -1135,7 +1210,9 @@ function toggleDarkMode() {
 // ============================================
 async function refreshData() {
     // Fetch sewer real-time data
-    await fetchSewerData();
+    if (!appState.sewerTestAlert.active) {
+        await fetchSewerData();
+    }
 
     // Generate dataset-driven data for other tunnels
     generateAllSimulatedData();
@@ -1189,6 +1266,7 @@ document.addEventListener('DOMContentLoaded', function () {
     // Generate initial data for all tunnels
     generateAllSimulatedData();
     Object.keys(TUNNEL_CONFIG).forEach(tid => {
+        if (tid === 'sewer') return;
         // Generate 20 initial historical data points
         for (let i = 0; i < 20; i++) {
             generateSimulatedData(tid);

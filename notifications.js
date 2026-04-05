@@ -6,6 +6,20 @@
 const https = require('https');
 const http = require('http');
 
+function envBool(name, defaultValue = false) {
+    const val = process.env[name];
+    if (val === undefined) return defaultValue;
+    return String(val).toLowerCase() === 'true';
+}
+
+const EMAIL_USER = process.env.EMAIL_USER || '';
+const EMAIL_PASS = process.env.EMAIL_PASS || '';
+const EMAIL_RECIPIENT = process.env.EMAIL_RECIPIENT || '';
+const TWILIO_SID = process.env.TWILIO_ACCOUNT_SID || '';
+const TWILIO_TOKEN = process.env.TWILIO_AUTH_TOKEN || '';
+const TWILIO_FROM = process.env.TWILIO_FROM_NUMBER || '';
+const TWILIO_TO = process.env.TWILIO_TO_NUMBER || '';
+
 // ============================================
 // 📋 CONFIGURATION
 // ============================================
@@ -19,11 +33,20 @@ const NOTIFICATION_CONFIG = {
     
     // Email Configuration (ENABLED - Configure your email below)
     email: {
-        enabled: true,  // Set to true to enable email notifications
-        service: 'gmail', // gmail, outlook, yahoo
-        user: 'sharunandha21@gmail.com',
-        password: 'ixtj pnrl ztng qxaa',  // Gmail App Password (not regular password)
-        recipient: 'sharmilavigneshwaran16@gmail.com'
+        enabled: envBool('EMAIL_ENABLED', true),
+        service: process.env.EMAIL_SERVICE || 'gmail',
+        user: EMAIL_USER,
+        password: EMAIL_PASS,
+        recipient: EMAIL_RECIPIENT
+    },
+
+    // Twilio Voice Call Configuration
+    twilio: {
+        enabled: envBool('TWILIO_ENABLED', true),
+        accountSid: TWILIO_SID,
+        authToken: TWILIO_TOKEN,
+        fromNumber: TWILIO_FROM,
+        toNumber: TWILIO_TO
     },
     
     // Pushover Configuration (Alternative - requires paid app)
@@ -41,11 +64,9 @@ const NOTIFICATION_CONFIG = {
     
     // Safety thresholds
     SAFE_LIMITS: {
-        CH4: 5000,      // Methane (PPM)
-        H2S: 10,        // Hydrogen Sulfide (PPM)
-        CO: 35,         // Carbon Monoxide (PPM)
-        O2_MIN: 19.5,   // Oxygen minimum (%)
-        O2_MAX: 23.5,   // Oxygen maximum (%)
+        CH4: 5000,      // MQ-4 Methane (PPM)
+        NH3: 25,        // MQ-2 proxy (Ammonia/VOC family) (PPM)
+        ALCOHOL: 200,   // MQ-3 Alcohol vapor (PPM)
         RISK_INDEX: 50  // Risk index threshold (%)
     }
 };
@@ -140,6 +161,11 @@ function sendEmailAlert(message, level = 'WARNING') {
         console.log('⚠️ Email notifications are disabled');
         return Promise.resolve();
     }
+
+    if (!NOTIFICATION_CONFIG.email.user || !NOTIFICATION_CONFIG.email.password || !NOTIFICATION_CONFIG.email.recipient) {
+        console.log('⚠️ Email credentials are incomplete. Set EMAIL_USER, EMAIL_PASS, EMAIL_RECIPIENT in .env');
+        return Promise.resolve();
+    }
     
     try {
         const nodemailer = require('nodemailer');
@@ -224,21 +250,75 @@ function sendPushoverAlert(message, level = 'WARNING') {
 }
 
 // ============================================
+// 📞 TWILIO VOICE CALL NOTIFICATION
+// ============================================
+
+/**
+ * Send alert via Twilio voice call
+ */
+function sendTwilioCallAlert(message, level = 'WARNING') {
+    if (!NOTIFICATION_CONFIG.twilio.enabled) {
+        return Promise.resolve();
+    }
+
+    try {
+        const twilio = require('twilio');
+        const { accountSid, authToken, fromNumber, toNumber } = NOTIFICATION_CONFIG.twilio;
+
+        if (!accountSid || !authToken || !fromNumber || !toNumber) {
+            console.log('⚠️ Twilio credentials are incomplete in notifications.js');
+            return Promise.resolve();
+        }
+
+        const client = twilio(accountSid, authToken);
+        const plainMessage = String(message)
+            .replace(/\*/g, '')
+            .replace(/\n+/g, '. ')
+            .replace(/•/g, ',')
+            .replace(/[^\x20-\x7E]/g, '');
+
+        const spokenText = `Sewer tunnel ${level} alert. ${plainMessage}`.slice(0, 1200);
+        const twiml = `<Response><Say voice="alice">${spokenText}</Say></Response>`;
+
+        return client.calls
+            .create({
+                twiml,
+                from: fromNumber,
+                to: toNumber
+            })
+            .then(() => console.log('✅ Twilio call alert sent successfully'))
+            .catch((error) => {
+                console.error('❌ Twilio call error:', error.message);
+                if (error && error.code) {
+                    console.error('   Twilio code:', error.code);
+                }
+                if (error && error.moreInfo) {
+                    console.error('   More info:', error.moreInfo);
+                }
+            });
+    } catch (error) {
+        console.error('❌ Twilio module not found. Install with: npm install twilio');
+        return Promise.resolve();
+    }
+}
+
+// ============================================
 // 🔍 SAFETY CONDITION CHECKER
 // ============================================
 
 /**
  * Check if current conditions are unsafe and send alert
  * @param {Object} sensorData - Sensor readings
+ * @param {Object} options - Optional flags
  */
-function checkAndAlert(sensorData) {
-    const { ch4, h2s, co, o2, temperature, riskIndex } = sensorData;
+function checkAndAlert(sensorData, options = {}) {
+    const { ch4, nh3, alcohol, temperature, riskIndex } = sensorData;
     
     // Check cooldown to prevent alert spam
     const now = Date.now();
     const cooldownMs = NOTIFICATION_CONFIG.alertCooldown * 60 * 1000;
     
-    if (now - lastAlertTime < cooldownMs) {
+    if (!options.force && (now - lastAlertTime < cooldownMs)) {
         console.log('⏳ Alert cooldown active, skipping...');
         return;
     }
@@ -249,10 +329,10 @@ function checkAndAlert(sensorData) {
     let alertMessages = [];
     
     // Check critical conditions
-    if (h2s > NOTIFICATION_CONFIG.SAFE_LIMITS.H2S * 2) {
+    if (nh3 > NOTIFICATION_CONFIG.SAFE_LIMITS.NH3 * 2) {
         alertNeeded = true;
         alertLevel = 'CRITICAL';
-        alertMessages.push(`🔴 CRITICAL: H2S level at ${h2s.toFixed(2)} PPM (Limit: ${NOTIFICATION_CONFIG.SAFE_LIMITS.H2S} PPM)`);
+        alertMessages.push(`🔴 CRITICAL: MQ-2 proxy gas at ${nh3.toFixed(2)} PPM (Limit: ${NOTIFICATION_CONFIG.SAFE_LIMITS.NH3} PPM)`);
     }
     
     if (ch4 > NOTIFICATION_CONFIG.SAFE_LIMITS.CH4) {
@@ -261,16 +341,10 @@ function checkAndAlert(sensorData) {
         alertMessages.push(`🟠 WARNING: CH4 (Methane) at ${ch4.toFixed(0)} PPM (Limit: ${NOTIFICATION_CONFIG.SAFE_LIMITS.CH4} PPM)`);
     }
     
-    if (co > NOTIFICATION_CONFIG.SAFE_LIMITS.CO) {
+    if (alcohol > NOTIFICATION_CONFIG.SAFE_LIMITS.ALCOHOL) {
         alertNeeded = true;
         alertLevel = alertLevel === 'CRITICAL' ? 'CRITICAL' : 'WARNING';
-        alertMessages.push(`🟠 WARNING: CO level at ${co.toFixed(2)} PPM (Limit: ${NOTIFICATION_CONFIG.SAFE_LIMITS.CO} PPM)`);
-    }
-    
-    if (o2 < NOTIFICATION_CONFIG.SAFE_LIMITS.O2_MIN || o2 > NOTIFICATION_CONFIG.SAFE_LIMITS.O2_MAX) {
-        alertNeeded = true;
-        alertLevel = 'WARNING';
-        alertMessages.push(`🟡 WARNING: O2 level at ${o2.toFixed(2)}% (Safe: ${NOTIFICATION_CONFIG.SAFE_LIMITS.O2_MIN}-${NOTIFICATION_CONFIG.SAFE_LIMITS.O2_MAX}%)`);
+        alertMessages.push(`🟠 WARNING: MQ-3 alcohol vapor at ${alcohol.toFixed(2)} PPM (Limit: ${NOTIFICATION_CONFIG.SAFE_LIMITS.ALCOHOL} PPM)`);
     }
     
     if (riskIndex > NOTIFICATION_CONFIG.SAFE_LIMITS.RISK_INDEX) {
@@ -286,9 +360,8 @@ function checkAndAlert(sensorData) {
         const message = `*UNSAFE CONDITIONS DETECTED*\n\n${alertMessages.join('\n')}\n\n` +
                        `📊 Current Readings:\n` +
                        `• CH4: ${ch4.toFixed(0)} PPM\n` +
-                       `• H2S: ${h2s.toFixed(2)} PPM\n` +
-                       `• CO: ${co.toFixed(2)} PPM\n` +
-                       `• O2: ${o2.toFixed(2)}%\n` +
+                       `• MQ-2 Proxy Gas: ${nh3.toFixed(2)} PPM\n` +
+                       `• MQ-3 Alcohol Vapor: ${alcohol.toFixed(2)} PPM\n` +
                        `• Temp: ${temperature.toFixed(1)}°C\n` +
                        `• Risk: ${riskIndex.toFixed(1)}%\n\n` +
                        `⚡ *ACTION REQUIRED:*\n` +
@@ -312,6 +385,10 @@ function checkAndAlert(sensorData) {
         
         if (NOTIFICATION_CONFIG.pushover.enabled) {
             promises.push(sendPushoverAlert(message, alertLevel));
+        }
+
+        if (NOTIFICATION_CONFIG.twilio.enabled) {
+            promises.push(sendTwilioCallAlert(message, alertLevel));
         }
         
         Promise.all(promises)
@@ -338,7 +415,7 @@ function sendStatusReport(sensorData, forceImmediate = false) {
         return Promise.resolve();
     }
     
-    const { ch4, h2s, co, o2, temperature, riskIndex } = sensorData;
+    const { ch4, nh3, alcohol, temperature, riskIndex } = sensorData;
     const now = Date.now();
     const intervalMs = NOTIFICATION_CONFIG.statusReportInterval * 60 * 1000;
     
@@ -372,9 +449,8 @@ function sendStatusReport(sensorData, forceImmediate = false) {
     
     // Check individual parameters
     const ch4Status = ch4 > NOTIFICATION_CONFIG.SAFE_LIMITS.CH4 ? '❌' : '✅';
-    const h2sStatus = h2s > NOTIFICATION_CONFIG.SAFE_LIMITS.H2S ? '❌' : '✅';
-    const coStatus = co > NOTIFICATION_CONFIG.SAFE_LIMITS.CO ? '❌' : '✅';
-    const o2Status = (o2 < NOTIFICATION_CONFIG.SAFE_LIMITS.O2_MIN || o2 > NOTIFICATION_CONFIG.SAFE_LIMITS.O2_MAX) ? '❌' : '✅';
+    const nh3Status = nh3 > NOTIFICATION_CONFIG.SAFE_LIMITS.NH3 ? '❌' : '✅';
+    const alcoholStatus = alcohol > NOTIFICATION_CONFIG.SAFE_LIMITS.ALCOHOL ? '❌' : '✅';
     
     try {
         const nodemailer = require('nodemailer');
@@ -615,18 +691,13 @@ function sendStatusReport(sensorData, forceImmediate = false) {
                             </div>
                             
                             <div class="reading-item">
-                                <span class="reading-label">${h2sStatus} H₂S (Hydrogen Sulfide)</span>
-                                <span class="reading-value">${h2s.toFixed(2)} PPM</span>
+                                <span class="reading-label">${nh3Status} MQ-2 Proxy Gas</span>
+                                <span class="reading-value">${nh3.toFixed(2)} PPM</span>
                             </div>
                             
                             <div class="reading-item">
-                                <span class="reading-label">${coStatus} CO (Carbon Monoxide)</span>
-                                <span class="reading-value">${co.toFixed(2)} PPM</span>
-                            </div>
-                            
-                            <div class="reading-item">
-                                <span class="reading-label">${o2Status} O₂ (Oxygen)</span>
-                                <span class="reading-value">${o2.toFixed(2)} %</span>
+                                <span class="reading-label">${alcoholStatus} MQ-3 Alcohol Vapor</span>
+                                <span class="reading-value">${alcohol.toFixed(2)} PPM</span>
                             </div>
                             
                             <div class="reading-item">
@@ -639,9 +710,8 @@ function sendStatusReport(sensorData, forceImmediate = false) {
                             <h3>⚠️ Safety Limits Reference</h3>
                             <ul>
                                 <li><strong>CH₄:</strong> &lt; ${NOTIFICATION_CONFIG.SAFE_LIMITS.CH4} PPM</li>
-                                <li><strong>H₂S:</strong> &lt; ${NOTIFICATION_CONFIG.SAFE_LIMITS.H2S} PPM</li>
-                                <li><strong>CO:</strong> &lt; ${NOTIFICATION_CONFIG.SAFE_LIMITS.CO} PPM</li>
-                                <li><strong>O₂:</strong> ${NOTIFICATION_CONFIG.SAFE_LIMITS.O2_MIN}% - ${NOTIFICATION_CONFIG.SAFE_LIMITS.O2_MAX}%</li>
+                                <li><strong>MQ-2 Proxy:</strong> &lt; ${NOTIFICATION_CONFIG.SAFE_LIMITS.NH3} PPM</li>
+                                <li><strong>MQ-3 Alcohol:</strong> &lt; ${NOTIFICATION_CONFIG.SAFE_LIMITS.ALCOHOL} PPM</li>
                                 <li><strong>Risk Index:</strong> &lt; ${NOTIFICATION_CONFIG.SAFE_LIMITS.RISK_INDEX}%</li>
                             </ul>
                         </div>
@@ -695,6 +765,7 @@ module.exports = {
     sendTelegramAlert,
     sendEmailAlert,
     sendPushoverAlert,
+    sendTwilioCallAlert,
     checkAndAlert,
     sendStatusReport,
     NOTIFICATION_CONFIG

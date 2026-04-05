@@ -1,178 +1,187 @@
 /*
- * ESP8266 Sewage Gas Sensor - IoT Monitoring System
- * 
- * Hardware: ESP8266 (NodeMCU) + MQ2 Gas Sensor
- * Cloud: ThingSpeak IoT Platform
- * 
- * This sketch reads gas sensor data and sends it to ThingSpeak
- * every 30 seconds for real-time monitoring via web dashboard.
- * 
- * Setup Instructions:
- * 1. Replace WiFi credentials (ssid, password)
- * 2. Replace ThingSpeak credentials (writeApiKey, channelID)
- * 3. Connect MQ2 sensor A0 pin to ESP8266 A0
- * 4. Upload to ESP8266
- * 5. Open Serial Monitor (115200 baud) to verify
+ * Arduino Uno Sewer Gas Sensor Node (MQ-2 + MQ-3 + MQ-4 + Buzzer + I2C LCD)
+ *
+ * Hardware:
+ * - Arduino Uno
+ * - MQ-2 on A0 (toxic/combustible sewer gas proxy)
+ * - MQ-3 on A1 (flammable VOC/alcohol vapor)
+ * - MQ-4 on A2 (methane)
+ * - Active buzzer on D5 (GPIO14)
+ * - 16x2 I2C LCD (0x27)
+ *
+ * Serial Output to ESP8266:
+ * - CSV line: mq2_ppm,mq3_ppm,ch4_ppm,warnScore
  */
 
-#include <ESP8266WiFi.h>
+#include <Wire.h>
+#include <LiquidCrystal_I2C.h>
+#include <SoftwareSerial.h>
 
-// ===== WiFi Settings =====
-const char* ssid = "YOUR_WIFI_NAME";          // Replace with your WiFi network name
-const char* password = "YOUR_WIFI_PASSWORD";   // Replace with your WiFi password
+// ===== Hardware Pins =====
+const int MQ2_PIN = A0;
+const int MQ3_PIN = A1;
+const int MQ4_PIN = A2;
+const int BUZZER_PIN = 5;
+const int ESP_RX_PIN = 2;
+const int ESP_TX_PIN = 3;
 
-// ===== ThingSpeak Settings =====
-const char* server = "api.thingspeak.com";
-const String writeApiKey = "YOUR_WRITE_API_KEY";  // Replace with your Write API Key from ThingSpeak
-const int channelID = 12345;                      // Replace with your Channel ID
+// ===== Sensor Safety Limits (must match dashboard assumptions) =====
+const float LIMIT_CH4 = 5000.0;   // MQ-4 methane
+const float LIMIT_MQ2 = 25.0;     // MQ-2 toxic sewer gas proxy
+const float LIMIT_MQ3 = 200.0;    // MQ-3 flammable VOC vapor
 
-// ===== Sensor Configuration =====
-const int MQ2_PIN = A0;  // Analog pin for MQ2 gas sensor
+// ===== ADC & LCD =====
+LiquidCrystal_I2C lcd(0x27, 16, 2);
+SoftwareSerial espLink(ESP_RX_PIN, ESP_TX_PIN);
 
 // ===== System Variables =====
-WiFiClient client;
 unsigned long lastUpdateTime = 0;
-const unsigned long updateInterval = 30000; // 30 seconds (ThingSpeak free tier limit)
+unsigned long lastScreenSwitch = 0;
+const unsigned long updateInterval = 30000;
+const unsigned long lcdRotateInterval = 2000;
+int lcdPage = 0;
+
+// ===== Utility =====
+float mapFloat(float x, float inMin, float inMax, float outMin, float outMax) {
+  if (x < inMin) x = inMin;
+  if (x > inMax) x = inMax;
+  return (x - inMin) * (outMax - outMin) / (inMax - inMin) + outMin;
+}
+
+String riskLabel(float ratio) {
+  if (ratio < 0.6) return "SAFE";
+  if (ratio < 1.0) return "WARN";
+  if (ratio < 1.5) return "HIGH";
+  return "CRIT";
+}
+
+int warningScore(float ch4, float mq2, float mq3) {
+  float s1 = min((ch4 / LIMIT_CH4) * 100.0, 100.0);
+  float s2 = min((mq2 / LIMIT_MQ2) * 100.0, 100.0);
+  float s3 = min((mq3 / LIMIT_MQ3) * 100.0, 100.0);
+  return (int)((0.3 * s1) + (0.35 * s2) + (0.35 * s3));
+}
+
+void beepPattern(float ch4, float mq2, float mq3) {
+  bool critical = (ch4 > LIMIT_CH4) || (mq2 > LIMIT_MQ2) || (mq3 > LIMIT_MQ3);
+  bool warning = (ch4 > LIMIT_CH4 * 0.8) || (mq2 > LIMIT_MQ2 * 0.8) || (mq3 > LIMIT_MQ3 * 0.8);
+
+  if (critical) {
+    tone(BUZZER_PIN, 2000, 250);
+    delay(300);
+    tone(BUZZER_PIN, 2000, 250);
+  } else if (warning) {
+    tone(BUZZER_PIN, 1400, 180);
+  } else {
+    noTone(BUZZER_PIN);
+  }
+}
+
+float readVoltage(int analogPin) {
+  int raw = analogRead(analogPin);
+  return raw * 5.0 / 1023.0;
+}
+
+float readMqttToPpm(float voltage, float maxPpm) {
+  return mapFloat(voltage, 0.2, 4.8, 0.0, maxPpm);
+}
+
+void showLcd(float ch4, float mq2, float mq3) {
+  if (millis() - lastScreenSwitch >= lcdRotateInterval) {
+    lcdPage = (lcdPage + 1) % 3;
+    lastScreenSwitch = millis();
+  }
+
+  float ratioCH4 = ch4 / LIMIT_CH4;
+  float ratioMQ2 = mq2 / LIMIT_MQ2;
+  float ratioMQ3 = mq3 / LIMIT_MQ3;
+
+  lcd.clear();
+  if (lcdPage == 0) {
+    lcd.setCursor(0, 0);
+    lcd.print("CH4/MQ4:");
+    lcd.print((int)ch4);
+    lcd.setCursor(0, 1);
+    lcd.print("Lvl:");
+    lcd.print(riskLabel(ratioCH4));
+  } else if (lcdPage == 1) {
+    lcd.setCursor(0, 0);
+    lcd.print("Toxic/MQ2:");
+    lcd.print(mq2, 1);
+    lcd.setCursor(0, 1);
+    lcd.print("Lvl:");
+    lcd.print(riskLabel(ratioMQ2));
+  } else {
+    lcd.setCursor(0, 0);
+    lcd.print("VOC/MQ3:");
+    lcd.print(mq3, 1);
+    lcd.setCursor(0, 1);
+    lcd.print("Lvl:");
+    lcd.print(riskLabel(ratioMQ3));
+  }
+}
 
 void setup() {
-    Serial.begin(115200);
-    delay(100);
-    
-    Serial.println("\n\n╔════════════════════════════════════════╗");
-    Serial.println("║  ESP8266 Sewage Gas Sensor System     ║");
-    Serial.println("║  IoT Minor Project                    ║");
-    Serial.println("╚════════════════════════════════════════╝");
-    
-    Serial.println("\n[WIFI] Connecting to WiFi...");
-    Serial.print("[WIFI] SSID: ");
-    Serial.println(ssid);
-    
-    WiFi.begin(ssid, password);
-    
-    int attempts = 0;
-    while (WiFi.status() != WL_CONNECTED && attempts < 20) {
-        delay(500);
-        Serial.print(".");
-        attempts++;
-    }
-    
-    if (WiFi.status() == WL_CONNECTED) {
-        Serial.println("\n[WIFI] ✓ Connected!");
-        Serial.print("[WIFI] IP Address: ");
-        Serial.println(WiFi.localIP());
-        Serial.print("[WIFI] Signal Strength: ");
-        Serial.print(WiFi.RSSI());
-        Serial.println(" dBm");
-    } else {
-        Serial.println("\n[WIFI] ✗ Connection Failed!");
-        Serial.println("[WIFI] Please check your credentials and try again");
-    }
-    
-    Serial.println("\n[SYSTEM] Initialization complete");
-    Serial.println("[SYSTEM] Waiting for first reading...\n");
+  Serial.begin(115200);
+  espLink.begin(9600);
+  delay(100);
+
+  pinMode(BUZZER_PIN, OUTPUT);
+  noTone(BUZZER_PIN);
+
+  Wire.begin();
+  lcd.init();
+  lcd.backlight();
+  lcd.clear();
+  lcd.setCursor(0, 0);
+  lcd.print("Sewer Gas Node");
+  lcd.setCursor(0, 1);
+  lcd.print("Booting...");
+
+  lcd.clear();
+  lcd.setCursor(0, 0);
+  lcd.print("Analog Inputs");
+  lcd.setCursor(0, 1);
+  lcd.print("To ESP8266");
 }
 
 void loop() {
-    // Check if it's time to send data (30 second interval)
-    if (millis() - lastUpdateTime >= updateInterval) {
-        lastUpdateTime = millis();
-        
-        // Read MQ2 sensor
-        int rawValue = analogRead(MQ2_PIN);
-        
-        // Convert to voltage (0-1023 → 0-3.3V for ESP8266)
-        float voltage = rawValue * 3.3 / 1023.0;
-        
-        // Calculate gas levels
-        // NOTE: These are approximations - proper calibration is needed for accurate readings
-        // Calibrate these formulas based on your specific MQ2 sensor and environment
-        float ch4_ppm = voltage * 1000;      // Methane
-        float h2s_ppm = voltage * 10;        // Hydrogen Sulfide  
-        float co_ppm = voltage * 50;         // Carbon Monoxide
-        float o2_percent = 21.0;             // Default oxygen level (requires separate O2 sensor)
-        float temperature = 25.0;            // Default temperature (requires separate temp sensor)
-        
-        // Display readings on Serial Monitor
-        Serial.println("╔════════════════════════════════════════╗");
-        Serial.println("║        SENSOR READING                  ║");
-        Serial.println("╚════════════════════════════════════════╝");
-        Serial.print("  Raw ADC Value: ");
-        Serial.println(rawValue);
-        Serial.print("  Voltage: ");
-        Serial.print(voltage, 3);
-        Serial.println(" V");
-        Serial.println("  ─────────────────────────────────────");
-        Serial.print("  CH4 (Methane):         ");
-        Serial.print(ch4_ppm, 2);
-        Serial.println(" PPM");
-        Serial.print("  H2S (Hydrogen Sulfide): ");
-        Serial.print(h2s_ppm, 2);
-        Serial.println(" PPM");
-        Serial.print("  CO (Carbon Monoxide):  ");
-        Serial.print(co_ppm, 2);
-        Serial.println(" PPM");
-        Serial.print("  O2 (Oxygen):           ");
-        Serial.print(o2_percent, 2);
-        Serial.println(" %");
-        Serial.print("  Temperature:           ");
-        Serial.print(temperature, 2);
-        Serial.println(" °C");
-        Serial.println("  ─────────────────────────────────────\n");
-        
-        // Send to ThingSpeak
-        if (WiFi.status() == WL_CONNECTED) {
-            sendToThingSpeak(ch4_ppm, h2s_ppm, co_ppm, o2_percent, temperature);
-        } else {
-            Serial.println("[WIFI] ✗ WiFi disconnected - attempting reconnect");
-            WiFi.begin(ssid, password);
-        }
-    }
-}
+  int rawMQ2 = analogRead(MQ2_PIN);
+  int rawMQ3 = analogRead(MQ3_PIN);
+  int rawMQ4 = analogRead(MQ4_PIN);
 
-/**
- * Send sensor data to ThingSpeak cloud platform
- */
-void sendToThingSpeak(float ch4, float h2s, float co, float o2, float temp) {
-    Serial.println("[THINGSPEAK] → Sending data...");
-    
-    if (client.connect(server, 80)) {
-        // Build the HTTP GET request URL
-        String url = "/update?api_key=" + writeApiKey;
-        url += "&field1=" + String(ch4, 2);   // Field 1: CH4 (Methane)
-        url += "&field2=" + String(h2s, 2);   // Field 2: H2S (Hydrogen Sulfide)
-        url += "&field3=" + String(co, 2);    // Field 3: CO (Carbon Monoxide)
-        url += "&field4=" + String(o2, 2);    // Field 4: O2 (Oxygen)
-        url += "&field5=" + String(temp, 2);  // Field 5: Temperature
-        
-        // Send HTTP request
-        client.print("GET " + url + " HTTP/1.1\r\n");
-        client.print("Host: api.thingspeak.com\r\n");
-        client.print("Connection: close\r\n\r\n");
-        
-        delay(500);
-        
-        // Read response
-        bool success = false;
-        while (client.connected()) {
-            if (client.available()) {
-                String line = client.readStringUntil('\n');
-                if (line.indexOf("200") >= 0 || line.indexOf("OK") >= 0) {
-                    success = true;
-                }
-            }
-        }
-        
-        client.stop();
-        
-        if (success) {
-            Serial.println("[THINGSPEAK] ✓ Data sent successfully!");
-        } else {
-            Serial.println("[THINGSPEAK] ⚠ Data sent but no confirmation received");
-        }
-    } else {
-        Serial.println("[THINGSPEAK] ✗ Failed to connect to server");
-        Serial.println("[THINGSPEAK] Check your internet connection");
-    }
-    
-    Serial.println();
+  float vMQ2 = rawMQ2 * 5.0 / 1023.0;
+  float vMQ3 = rawMQ3 * 5.0 / 1023.0;
+  float vMQ4 = rawMQ4 * 5.0 / 1023.0;
+
+  // Approximate PPM mappings (must be calibrated for production accuracy)
+  float mq2_ppm = readMqttToPpm(vMQ2, 120.0);
+  float mq3_ppm = readMqttToPpm(vMQ3, 600.0);
+  float ch4_ppm = readMqttToPpm(vMQ4, 12000.0);
+
+  int warnScore = warningScore(ch4_ppm, mq2_ppm, mq3_ppm);
+
+  Serial.println("========================================");
+  Serial.print("MQ-2 Raw: "); Serial.print(rawMQ2); Serial.print("  Voltage: "); Serial.print(vMQ2, 2); Serial.println(" V");
+  Serial.print("MQ-3 Raw: "); Serial.print(rawMQ3); Serial.print("  Voltage: "); Serial.print(vMQ3, 2); Serial.println(" V");
+  Serial.print("MQ-4 Raw: "); Serial.print(rawMQ4); Serial.print("  Voltage: "); Serial.print(vMQ4, 2); Serial.println(" V");
+  Serial.print("MQ-4 CH4: "); Serial.print(ch4_ppm, 2); Serial.println(" PPM");
+  Serial.print("MQ-2 Toxic Index: "); Serial.print(mq2_ppm, 2); Serial.println(" PPM");
+  Serial.print("MQ-3 VOC Vapor: "); Serial.print(mq3_ppm, 2); Serial.println(" PPM");
+  Serial.print("Warning Score: "); Serial.println(warnScore);
+
+  showLcd(ch4_ppm, mq2_ppm, mq3_ppm);
+  beepPattern(ch4_ppm, mq2_ppm, mq3_ppm);
+
+  String payload = String(mq2_ppm, 2) + "," + String(mq3_ppm, 2) + "," + String(ch4_ppm, 2) + "," + String(warnScore);
+  espLink.println(payload);
+  Serial.print("[UNO->ESP] ");
+  Serial.println(payload);
+
+  if (millis() - lastUpdateTime >= updateInterval) {
+    lastUpdateTime = millis();
+    Serial.println("[UNO] Sensor payload sent to ESP8266 for ThingSpeak upload.");
+  }
+
+  delay(300);
 }

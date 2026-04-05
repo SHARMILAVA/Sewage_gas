@@ -74,6 +74,15 @@ Simply open `index.html` in a web browser:
 - Double-click the file, or
 - Right-click → Open with → Your Browser
 
+### 1A. Two-Board Hardware Setup
+If you are using Arduino Uno + ESP8266, use the split firmware:
+- Upload [ESP8266_SewageGasSensor.ino](ESP8266_SewageGasSensor.ino) to the Arduino Uno sensor node.
+- Upload [ESP8266_ThingSpeak_Gateway.ino](ESP8266_ThingSpeak_Gateway.ino) to the ESP8266 WiFi gateway.
+- Connect Uno D3 (TX from SoftwareSerial) to ESP8266 D6 (RX) through a 5V-to-3.3V level shifter or resistor divider.
+- Connect Uno GND and ESP8266 GND together.
+- The Uno sends CSV packets in this format: `MQ2,MQ3,MQ4,WarningScore`.
+- The ESP8266 reads those packets and uploads them to ThingSpeak fields 1, 2, 3, and 5.
+
 ### 2. Configure ThingSpeak API
 Edit `script.js` and update the configuration:
 ```javascript
@@ -86,11 +95,10 @@ const CONFIG = {
 
 ### 3. Data Fields Mapping
 Update the API endpoint to map your ThingSpeak fields:
-- **field1** → CH₄ (Methane)
-- **field2** → H₂S (Hydrogen Sulfide)
-- **field3** → CO (Carbon Monoxide)
-- **field4** → O₂ (Oxygen)
-- **field5** → Temperature
+- **field1** → MQ-4 / Methane (CH₄)
+- **field2** → MQ-2 / Toxic sewer gas index
+- **field3** → MQ-3 / Flammable VOC vapor
+- **field5** → Warning score
 
 ### 4. Using Mock Data
 The dashboard comes with built-in mock data generator for testing:
