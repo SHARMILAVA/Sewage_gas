@@ -275,10 +275,28 @@ function sendTwilioCallAlert(message, level = 'WARNING') {
             .replace(/\*/g, '')
             .replace(/\n+/g, '. ')
             .replace(/•/g, ',')
-            .replace(/[^\x20-\x7E]/g, '');
+            .replace(/[^\x20-\x7E]/g, '')
+            .replace(/\s+/g, ' ')
+            .trim();
 
-        const spokenText = `Sewer tunnel ${level} alert. ${plainMessage}`.slice(0, 1200);
-        const twiml = `<Response><Say voice="alice">${spokenText}</Say></Response>`;
+        // Escape XML-sensitive characters before embedding text in TwiML.
+        const escapeForTwiml = (value) => String(value)
+            .replace(/&/g, '&amp;')
+            .replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;')
+            .replace(/"/g, '&quot;')
+            .replace(/'/g, '&apos;');
+
+        const spokenText = escapeForTwiml(`Sewer tunnel ${level} alert. ${plainMessage}`.slice(0, 1200));
+        const twiml = [
+            '<Response>',
+            `<Say voice="alice">${spokenText}</Say>`,
+            '<Pause length="2"/>',
+            '<Say voice="alice">Repeating alert. Please avoid entry until gas levels return to safe range.</Say>',
+            '<Pause length="1"/>',
+            '<Say voice="alice">This automated safety call will now end.</Say>',
+            '</Response>'
+        ].join('');
 
         return client.calls
             .create({
