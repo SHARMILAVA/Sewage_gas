@@ -175,6 +175,33 @@ function startSafetyMonitoring() {
 }
 
 const server = http.createServer((req, res) => {
+    if (req.url.startsWith('/api/test-twilio-call')) {
+        const testMessage = [
+            'Manual Twilio call test from Sewage Gas Dashboard.',
+            'If you receive this call, Twilio voice path is working.',
+            `Timestamp: ${new Date().toLocaleString()}`
+        ].join(' ');
+
+        notifications.sendTwilioCallAlert(testMessage, 'CRITICAL')
+            .then((result) => {
+                res.writeHead(200, {
+                    'Content-Type': 'application/json',
+                    'Access-Control-Allow-Origin': '*'
+                });
+                res.end(JSON.stringify({ ok: true, sid: result && result.sid ? result.sid : null }));
+            })
+            .catch((error) => {
+                console.error('❌ Twilio-only test endpoint error:', error.message);
+                res.writeHead(500, {
+                    'Content-Type': 'application/json',
+                    'Access-Control-Allow-Origin': '*'
+                });
+                res.end(JSON.stringify({ ok: false, error: error.message }));
+            });
+
+        return;
+    }
+
     // Manual alert test endpoint (used by dashboard Test Alert button)
     if (req.url.startsWith('/api/test-alert')) {
         const sensorData = {

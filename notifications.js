@@ -258,7 +258,7 @@ function sendPushoverAlert(message, level = 'WARNING') {
  */
 function sendTwilioCallAlert(message, level = 'WARNING') {
     if (!NOTIFICATION_CONFIG.twilio.enabled) {
-        return Promise.resolve();
+        return Promise.resolve({ skipped: true, reason: 'disabled' });
     }
 
     try {
@@ -267,7 +267,7 @@ function sendTwilioCallAlert(message, level = 'WARNING') {
 
         if (!accountSid || !authToken || !fromNumber || !toNumber) {
             console.log('⚠️ Twilio credentials are incomplete in notifications.js');
-            return Promise.resolve();
+            return Promise.resolve({ skipped: true, reason: 'incomplete_credentials' });
         }
 
         const client = twilio(accountSid, authToken);
@@ -286,7 +286,13 @@ function sendTwilioCallAlert(message, level = 'WARNING') {
                 from: fromNumber,
                 to: toNumber
             })
-            .then(() => console.log('✅ Twilio call alert sent successfully'))
+            .then((call) => {
+                console.log('✅ Twilio call alert sent successfully');
+                if (call && call.sid) {
+                    console.log('   Call SID:', call.sid);
+                }
+                return call;
+            })
             .catch((error) => {
                 console.error('❌ Twilio call error:', error.message);
                 if (error && error.code) {
@@ -295,10 +301,11 @@ function sendTwilioCallAlert(message, level = 'WARNING') {
                 if (error && error.moreInfo) {
                     console.error('   More info:', error.moreInfo);
                 }
+                throw error;
             });
     } catch (error) {
         console.error('❌ Twilio module not found. Install with: npm install twilio');
-        return Promise.resolve();
+        return Promise.resolve({ skipped: true, reason: 'twilio_module_missing' });
     }
 }
 

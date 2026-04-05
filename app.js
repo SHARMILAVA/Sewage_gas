@@ -281,6 +281,19 @@ function triggerBackendManualAlert() {
         .catch((err) => console.error('❌ Failed to trigger backend manual alert:', err.message));
 }
 
+function triggerTwilioOnlyTest() {
+    fetch('/api/test-twilio-call')
+        .then((res) => res.json())
+        .then((data) => {
+            if (data && data.ok) {
+                console.log('📞 Twilio-only test triggered successfully');
+            } else {
+                console.error('❌ Twilio-only test failed');
+            }
+        })
+        .catch((err) => console.error('❌ Failed to trigger Twilio-only test:', err.message));
+}
+
 function startSewerTestAlert() {
     const testState = appState.sewerTestAlert;
     if (testState.active) return;
@@ -709,9 +722,12 @@ function renderAnalysisPage(tunnelId) {
     if (tunnelId === 'sewer') {
         const testingNow = appState.sewerTestAlert.active;
         sewerTestHtml = `
-            <div style="margin-bottom:15px;display:flex;align-items:center;gap:10px;">
+            <div style="margin-bottom:15px;display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
                 <button class="btn btn-action btn-warning" onclick="startSewerTestAlert()" ${testingNow ? 'disabled' : ''}>
                     <i class="fas fa-flask"></i> Test Alert
+                </button>
+                <button class="btn btn-action btn-danger" onclick="triggerTwilioOnlyTest()">
+                    <i class="fas fa-phone"></i> Test Twilio Call
                 </button>
                 <span style="color:${testingNow ? '#ffd700' : '#888'};font-size:12px;">
                     ${testingNow ? 'Running 10s alert ramp and Twilio/email trigger...' : 'Manual check: ramps MQ-2/MQ-3/MQ-4 for 10s, then returns to ThingSpeak live values'}
