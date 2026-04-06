@@ -1,0 +1,898 @@
+/* ===================================
+   SEWAGE GAS DASHBOARD - STYLE.CSS
+   Industrial Theme with Dark Background
+   =================================== */
+
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+:root {
+    --primary-dark: #0a0e27;
+    --secondary-dark: #1a1f3a;
+    --accent-cyan: #00d9ff;
+    --accent-orange: #ff6b35;
+    --safe-green: #00ff88;
+    --warning-yellow: #ffd700;
+    --danger-red: #ff3333;
+    --critical-purple: #ff006e;
+    --text-light: #e0e0e0;
+    --text-muted: #a0a0a0;
+    --border-color: #2d3748;
+}
+
+body {
+    background: linear-gradient(135deg, var(--primary-dark) 0%, #0f1434 100%);
+    color: var(--text-light);
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    overflow-x: hidden;
+}
+
+/* ===== HEADER ===== */
+.dashboard-header {
+    background: linear-gradient(90deg, var(--secondary-dark) 0%, #1a2847 100%);
+    border-bottom: 3px solid var(--accent-cyan);
+    padding: 20px 0;
+    box-shadow: 0 4px 15px rgba(0, 217, 255, 0.2);
+    margin-bottom: 30px;
+    position: sticky;
+    top: 0;
+    z-index: 100;
+}
+
+.header-title {
+    font-size: 28px;
+    font-weight: 700;
+    color: var(--accent-cyan);
+    text-shadow: 0 0 20px rgba(0, 217, 255, 0.3);
+    margin: 0;
+    display: flex;
+    align-items: center;
+    gap: 15px;
+}
+
+.header-title i {
+    font-size: 32px;
+}
+
+.system-status {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    font-size: 14px;
+    margin-bottom: 10px;
+}
+
+.status-indicator {
+    display: inline-block;
+    width: 15px;
+    height: 15px;
+    border-radius: 50%;
+    background: var(--safe-green);
+    box-shadow: 0 0 10px var(--safe-green);
+    animation: pulse 2s infinite;
+}
+
+.status-indicator.offline {
+    background: var(--danger-red);
+    box-shadow: 0 0 10px var(--danger-red);
+}
+
+.last-updated {
+    font-size: 12px;
+    color: var(--text-muted);
+}
+
+@keyframes pulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.7; }
+}
+
+/* ===== MAIN DASHBOARD ===== */
+.dashboard-main {
+    padding: 20px 0 40px;
+}
+
+.section-title {
+    font-size: 24px;
+    font-weight: 600;
+    color: var(--accent-cyan);
+    margin-bottom: 25px;
+    padding-bottom: 15px;
+    border-bottom: 2px solid var(--accent-cyan);
+    text-transform: uppercase;
+    letter-spacing: 1px;
+}
+
+/* ===== GAS CARDS ===== */
+.section-gas-cards {
+    margin-bottom: 40px;
+}
+
+.gas-card {
+    background: linear-gradient(135deg, var(--secondary-dark) 0%, #232d45 100%);
+    border: 2px solid var(--accent-cyan);
+    border-radius: 12px;
+    padding: 20px;
+    height: 100%;
+    transition: all 0.3s ease;
+    box-shadow: 0 5px 20px rgba(0, 217, 255, 0.1);
+    position: relative;
+    overflow: hidden;
+}
+
+.gas-card::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: -100%;
+    width: 100%;
+    height: 100%;
+    background: linear-gradient(90deg, transparent, rgba(0, 217, 255, 0.1), transparent);
+    transition: left 0.5s;
+}
+
+.gas-card:hover {
+    transform: translateY(-5px);
+    box-shadow: 0 10px 30px rgba(0, 217, 255, 0.2);
+    border-color: var(--accent-orange);
+}
+
+.gas-card:hover::before {
+    left: 100%;
+}
+
+.gas-card-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 15px;
+}
+
+.gas-card-header h3 {
+    font-size: 16px;
+    font-weight: 600;
+    margin: 0;
+    color: var(--text-light);
+}
+
+.trend-arrow {
+    font-size: 24px;
+    font-weight: bold;
+    color: var(--accent-cyan);
+    transition: all 0.3s ease;
+}
+
+.trend-arrow.up {
+    color: var(--danger-red);
+    animation: trendUp 0.5s ease;
+}
+
+.trend-arrow.down {
+    color: var(--safe-green);
+    animation: trendDown 0.5s ease;
+}
+
+@keyframes trendUp {
+    0% { transform: translateY(0); }
+    50% { transform: translateY(-5px); }
+    100% { transform: translateY(0); }
+}
+
+@keyframes trendDown {
+    0% { transform: translateY(0); }
+    50% { transform: translateY(5px); }
+    100% { transform: translateY(0); }
+}
+
+.gas-value {
+    font-size: 36px;
+    font-weight: 700;
+    color: var(--accent-cyan);
+    margin: 10px 0;
+    text-shadow: 0 0 10px rgba(0, 217, 255, 0.3);
+}
+
+.gas-unit {
+    font-size: 12px;
+    color: var(--text-muted);
+    text-transform: uppercase;
+}
+
+.safe-limit {
+    font-size: 12px;
+    color: var(--text-muted);
+    margin: 15px 0;
+}
+
+.status-bar {
+    width: 100%;
+    height: 8px;
+    background: rgba(255, 255, 255, 0.1);
+    border-radius: 4px;
+    overflow: hidden;
+}
+
+.status-fill {
+    height: 100%;
+    background: linear-gradient(90deg, var(--safe-green), var(--warning-yellow), var(--danger-red));
+    border-radius: 4px;
+    transition: width 0.5s ease;
+}
+
+/* Gas card status colors */
+.gas-card.safe {
+    border-color: var(--safe-green);
+    background: linear-gradient(135deg, rgba(0, 255, 136, 0.05) 0%, rgba(0, 255, 136, 0.02) 100%);
+}
+
+.gas-card.warning {
+    border-color: var(--warning-yellow);
+    background: linear-gradient(135deg, rgba(255, 215, 0, 0.05) 0%, rgba(255, 215, 0, 0.02) 100%);
+    box-shadow: 0 5px 20px rgba(255, 215, 0, 0.1);
+}
+
+.gas-card.danger {
+    border-color: var(--danger-red);
+    background: linear-gradient(135deg, rgba(255, 51, 51, 0.05) 0%, rgba(255, 51, 51, 0.02) 100%);
+    box-shadow: 0 5px 20px rgba(255, 51, 51, 0.1);
+}
+
+/* ===== RISK INDEX SECTION ===== */
+.section-risk-index {
+    margin-bottom: 40px;
+}
+
+.risk-index-panel,
+.exposure-panel,
+.explosion-panel,
+.recommendation-panel,
+.ventilation-panel,
+.graph-container {
+    background: linear-gradient(135deg, var(--secondary-dark) 0%, #232d45 100%);
+    border: 2px solid var(--accent-cyan);
+    border-radius: 12px;
+    padding: 25px;
+    box-shadow: 0 5px 20px rgba(0, 217, 255, 0.1);
+    height: 100%;
+}
+
+.risk-index-panel h3,
+.exposure-panel h3,
+.explosion-panel h3,
+.recommendation-panel h3,
+.ventilation-panel h3,
+.graph-container h4 {
+    color: var(--accent-cyan);
+    margin-bottom: 20px;
+    font-size: 18px;
+    font-weight: 600;
+}
+
+.risk-value {
+    font-size: 48px;
+    font-weight: 700;
+    color: var(--accent-cyan);
+    text-align: center;
+    margin: 20px 0;
+    text-shadow: 0 0 15px rgba(0, 217, 255, 0.3);
+}
+
+.risk-progress {
+    height: 15px;
+    border-radius: 10px;
+    background: rgba(255, 255, 255, 0.1);
+    overflow: hidden;
+    margin: 20px 0;
+}
+
+.risk-progress .progress-bar {
+    background: linear-gradient(90deg, var(--safe-green), var(--warning-yellow), var(--danger-red));
+    border-radius: 10px;
+    transition: width 0.6s ease;
+    box-shadow: 0 0 15px rgba(0, 217, 255, 0.3);
+}
+
+.risk-classification {
+    text-align: center;
+    font-size: 20px;
+    font-weight: 600;
+    margin: 15px 0;
+    padding: 10px;
+    border-radius: 8px;
+    background: rgba(0, 217, 255, 0.1);
+}
+
+.risk-legend {
+    display: flex;
+    gap: 10px;
+    flex-wrap: wrap;
+    margin-top: 15px;
+    justify-content: center;
+    font-size: 12px;
+}
+
+.legend-item {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+}
+
+.legend-color {
+    width: 12px;
+    height: 12px;
+    border-radius: 2px;
+}
+
+.legend-color.safe { background: var(--safe-green); }
+.legend-color.moderate { background: var(--warning-yellow); }
+.legend-color.danger { background: var(--accent-orange); }
+.legend-color.critical { background: var(--danger-red); }
+
+/* ===== EXPOSURE TIME ===== */
+.exposure-time {
+    font-size: 48px;
+    font-weight: 700;
+    color: var(--accent-cyan);
+    text-align: center;
+    margin: 20px 0;
+    text-shadow: 0 0 15px rgba(0, 217, 255, 0.3);
+}
+
+.exposure-label {
+    text-align: center;
+    color: var(--text-muted);
+    font-size: 14px;
+    margin-bottom: 20px;
+}
+
+.exposure-details {
+    background: rgba(0, 217, 255, 0.05);
+    padding: 15px;
+    border-radius: 8px;
+    margin-top: 15px;
+    font-size: 13px;
+}
+
+.exposure-details p {
+    margin: 8px 0;
+}
+
+.exposure-alert.flashing {
+    animation: flashing 0.5s infinite;
+}
+
+@keyframes flashing {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.5; }
+}
+
+/* ===== EXPLOSION PROBABILITY ===== */
+.section-explosion {
+    margin-bottom: 40px;
+}
+
+.explosion-panel {
+    text-align: center;
+}
+
+.circular-gauge {
+    position: relative;
+    width: 180px;
+    height: 180px;
+    margin: 20px auto;
+}
+
+.gauge-svg {
+    width: 100%;
+    height: 100%;
+}
+
+.gauge-text {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+}
+
+.gauge-value {
+    font-size: 36px;
+    font-weight: 700;
+    color: var(--accent-cyan);
+    text-shadow: 0 0 15px rgba(0, 217, 255, 0.3);
+}
+
+/* ===== SAFETY RECOMMENDATION ===== */
+.recommendation-box {
+    background: rgba(0, 217, 255, 0.05);
+    border: 2px solid var(--accent-cyan);
+    border-radius: 8px;
+    padding: 30px;
+    text-align: center;
+    min-height: 150px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.recommendation-status {
+    font-size: 20px;
+    font-weight: 600;
+    color: var(--accent-cyan);
+}
+
+.recommendation-status i {
+    margin-right: 10px;
+    font-size: 24px;
+}
+
+.recommendation-actions {
+    display: flex;
+    gap: 10px;
+    justify-content: center;
+    flex-wrap: wrap;
+}
+
+.btn-action {
+    padding: 10px 20px;
+    font-size: 12px;
+    font-weight: 600;
+    border: none;
+    border-radius: 6px;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    text-transform: uppercase;
+}
+
+.btn-safe {
+    background: var(--safe-green);
+    color: #000;
+}
+
+.btn-safe:hover {
+    background: #00dd77;
+    transform: scale(1.05);
+}
+
+.btn-warning {
+    background: var(--warning-yellow);
+    color: #000;
+}
+
+.btn-warning:hover {
+    background: #ffed4e;
+    transform: scale(1.05);
+}
+
+.btn-danger {
+    background: var(--danger-red);
+    color: #fff;
+}
+
+.btn-danger:hover {
+    background: #ff2222;
+    transform: scale(1.05);
+}
+
+/* ===== ENTRY PERMISSION ===== */
+.section-entry {
+    margin-bottom: 40px;
+}
+
+.entry-permission-box {
+    background: linear-gradient(135deg, var(--secondary-dark) 0%, #232d45 100%);
+    border: 3px solid var(--accent-cyan);
+    border-radius: 12px;
+    padding: 50px;
+    text-align: center;
+    box-shadow: 0 8px 30px rgba(0, 217, 255, 0.15);
+    transition: all 0.3s ease;
+}
+
+.entry-permission-box.allowed {
+    border-color: var(--safe-green);
+    background: linear-gradient(135deg, rgba(0, 255, 136, 0.05) 0%, rgba(0, 255, 136, 0.02) 100%);
+    box-shadow: 0 8px 30px rgba(0, 255, 136, 0.15);
+}
+
+.entry-permission-box.not-allowed {
+    border-color: var(--danger-red);
+    background: linear-gradient(135deg, rgba(255, 51, 51, 0.05) 0%, rgba(255, 51, 51, 0.02) 100%);
+    box-shadow: 0 8px 30px rgba(255, 51, 51, 0.15);
+    animation: warning-pulse 1s infinite;
+}
+
+@keyframes warning-pulse {
+    0%, 100% { border-color: var(--danger-red); }
+    50% { border-color: #ff0000; }
+}
+
+.entry-icon {
+    font-size: 64px;
+    margin-bottom: 20px;
+    color: var(--accent-cyan);
+    transition: all 0.3s ease;
+}
+
+.entry-permission-box.allowed .entry-icon {
+    color: var(--safe-green);
+    animation: bounce 1s infinite;
+}
+
+.entry-permission-box.not-allowed .entry-icon {
+    color: var(--danger-red);
+    animation: shake 0.5s infinite;
+}
+
+@keyframes bounce {
+    0%, 100% { transform: translateY(0); }
+    50% { transform: translateY(-10px); }
+}
+
+@keyframes shake {
+    0%, 100% { transform: translateX(0); }
+    25% { transform: translateX(-5px); }
+    75% { transform: translateX(5px); }
+}
+
+.entry-status {
+    font-size: 32px;
+    font-weight: 700;
+    margin-bottom: 15px;
+    text-transform: uppercase;
+    letter-spacing: 2px;
+}
+
+.entry-permission-box.allowed .entry-status {
+    color: var(--safe-green);
+    text-shadow: 0 0 15px var(--safe-green);
+}
+
+.entry-permission-box.not-allowed .entry-status {
+    color: var(--danger-red);
+    text-shadow: 0 0 15px var(--danger-red);
+}
+
+.entry-message {
+    font-size: 14px;
+    color: var(--text-muted);
+}
+
+/* ===== VENTILATION STATUS ===== */
+.section-ventilation {
+    margin-bottom: 40px;
+}
+
+.fan-status {
+    text-align: center;
+    padding: 20px;
+}
+
+.fan-indicator {
+    width: 80px;
+    height: 80px;
+    border-radius: 50%;
+    background: rgba(255, 255, 255, 0.1);
+    margin: 0 auto 15px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border: 3px solid var(--text-muted);
+    transition: all 0.3s ease;
+}
+
+.fan-indicator.on {
+    background: var(--safe-green);
+    border-color: var(--safe-green);
+    box-shadow: 0 0 20px var(--safe-green);
+    animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+    from { transform: rotate(0deg); }
+    to { transform: rotate(360deg); }
+}
+
+.fan-text {
+    font-size: 18px;
+    font-weight: 600;
+    color: var(--text-light);
+}
+
+.purge-timer {
+    font-size: 36px;
+    font-weight: 700;
+    color: var(--accent-cyan);
+    text-shadow: 0 0 15px rgba(0, 217, 255, 0.3);
+    font-family: 'Courier New', monospace;
+    text-align: center;
+    padding: 20px;
+}
+
+.control-mode {
+    text-align: center;
+    padding: 20px;
+}
+
+.badge-auto {
+    background: var(--safe-green);
+    color: #000;
+    padding: 10px 15px;
+    border-radius: 6px;
+    font-weight: 600;
+    font-size: 14px;
+}
+
+.badge-manual {
+    background: var(--warning-yellow);
+    color: #000;
+    padding: 10px 15px;
+    border-radius: 6px;
+    font-weight: 600;
+    font-size: 14px;
+}
+
+/* ===== PREDICTIVE ALERT ===== */
+.section-alerts {
+    margin-bottom: 40px;
+}
+
+.predictive-alert-banner {
+    background: linear-gradient(90deg, var(--danger-red), var(--accent-orange));
+    border-left: 5px solid var(--critical-purple);
+    padding: 20px;
+    border-radius: 8px;
+    font-size: 18px;
+    font-weight: 600;
+    display: flex;
+    align-items: center;
+    gap: 15px;
+    color: white;
+    box-shadow: 0 5px 20px rgba(255, 51, 51, 0.3);
+    animation: slide-in 0.5s ease;
+}
+
+.predictive-alert-banner i {
+    font-size: 24px;
+    animation: blink 0.7s infinite;
+}
+
+@keyframes blink {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.5; }
+}
+
+@keyframes slide-in {
+    from {
+        transform: translateX(-100%);
+        opacity: 0;
+    }
+    to {
+        transform: translateX(0);
+        opacity: 1;
+    }
+}
+
+/* ===== GRAPHS ===== */
+.section-graphs {
+    margin-bottom: 40px;
+}
+
+.graph-container {
+    position: relative;
+}
+
+.graph-container canvas {
+    max-height: 300px;
+}
+
+/* ===== FOOTER ===== */
+.dashboard-footer {
+    background: var(--secondary-dark);
+    border-top: 2px solid var(--accent-cyan);
+    padding: 20px 0;
+    margin-top: 40px;
+    text-align: center;
+    font-size: 12px;
+    color: var(--text-muted);
+}
+
+.dashboard-footer a {
+    color: var(--accent-cyan);
+    text-decoration: none;
+    transition: color 0.3s ease;
+}
+
+.dashboard-footer a:hover {
+    color: var(--accent-orange);
+}
+
+/* ===== RESPONSIVE DESIGN ===== */
+@media (max-width: 768px) {
+    .header-title {
+        font-size: 20px;
+    }
+
+    .header-title i {
+        font-size: 24px;
+    }
+
+    .section-title {
+        font-size: 18px;
+    }
+
+    .gas-value {
+        font-size: 28px;
+    }
+
+    .risk-value,
+    .exposure-time {
+        font-size: 36px;
+    }
+
+    .entry-permission-box {
+        padding: 30px;
+    }
+
+    .entry-status {
+        font-size: 24px;
+    }
+
+    .entry-icon {
+        font-size: 48px;
+    }
+
+    .circular-gauge {
+        width: 140px;
+        height: 140px;
+    }
+
+    .gauge-value {
+        font-size: 28px;
+    }
+
+    .btn-action {
+        padding: 8px 16px;
+        font-size: 11px;
+    }
+}
+
+@media (max-width: 576px) {
+    .header-title {
+        font-size: 16px;
+    }
+
+    .header-title i {
+        font-size: 20px;
+    }
+
+    .dashboard-header {
+        padding: 15px 0;
+    }
+
+    .system-status {
+        flex-direction: column;
+        align-items: flex-start;
+    }
+
+    .gas-card {
+        padding: 15px;
+    }
+
+    .gas-value {
+        font-size: 24px;
+    }
+
+    .gas-unit {
+        font-size: 10px;
+    }
+
+    .section-title {
+        font-size: 16px;
+        margin-bottom: 15px;
+    }
+
+    .risk-value,
+    .exposure-time {
+        font-size: 28px;
+    }
+
+    .entry-permission-box {
+        padding: 20px;
+    }
+
+    .entry-status {
+        font-size: 20px;
+    }
+
+    .entry-icon {
+        font-size: 40px;
+    }
+
+    .recommendation-actions {
+        flex-direction: column;
+    }
+
+    .btn-action {
+        width: 100%;
+    }
+
+    .circular-gauge {
+        width: 120px;
+        height: 120px;
+    }
+
+    .gauge-value {
+        font-size: 24px;
+    }
+
+    .predictive-alert-banner {
+        flex-direction: column;
+        text-align: center;
+        font-size: 14px;
+    }
+}
+
+/* ===== DARK MODE TOGGLE ===== */
+body.dark-mode {
+    --primary-dark: #0a0e27;
+    --secondary-dark: #1a1f3a;
+}
+
+body.light-mode {
+    --primary-dark: #f5f5f5;
+    --secondary-dark: #ffffff;
+    --text-light: #1a1a1a;
+    --text-muted: #666666;
+    --border-color: #e0e0e0;
+    color: var(--text-light);
+    background: linear-gradient(135deg, var(--primary-dark) 0%, #e8e8e8 100%);
+}
+
+body.light-mode .gas-card,
+body.light-mode .risk-index-panel,
+body.light-mode .exposure-panel,
+body.light-mode .explosion-panel,
+body.light-mode .recommendation-panel,
+body.light-mode .ventilation-panel,
+body.light-mode .graph-container {
+    background: linear-gradient(135deg, var(--secondary-dark) 0%, #f9f9f9 100%);
+    border-color: #ddd;
+}
+
+body.light-mode .header-title {
+    color: #0066cc;
+}
+
+body.light-mode .section-title {
+    color: #0066cc;
+    border-bottom-color: #0066cc;
+}
+
+body.light-mode .dashboard-header {
+    border-bottom-color: #0066cc;
+}
+
+body.light-mode .dashboard-footer {
+    border-top-color: #0066cc;
+}
+
+body.light-mode .dashboard-footer a {
+    color: #0066cc;
+}
+
+/* Animations for alerts */
+@keyframes critical-flash {
+    0%, 100% { background-color: var(--danger-red); }
+    50% { background-color: #ff0000; }
+}
+
+.critical-state {
+    animation: critical-flash 0.5s infinite;
+}
