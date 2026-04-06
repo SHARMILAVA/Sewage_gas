@@ -1,0 +1,17 @@
+{
+  "name": "sewage_gas-main-root",
+  "private": true,
+  "version": "1.0.0",
+  "main": "Sewage_gas-main/server.js",
+  "scripts": {
+    "start": "node Sewage_gas-main/server.js"
+  },
+  "engines": {
+    "node": ">=18"
+  },
+  "dependencies": {
+    "dotenv": "^16.6.1",
+    "nodemailer": "^8.0.1",
+    "twilio": "^5.13.1"
+  }
+}

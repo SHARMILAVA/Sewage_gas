@@ -1,0 +1,315 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sewage Tunnel Gas Safety Dashboard</title>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/bootstrap/5.3.0/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <!-- SECTION 1: HEADER -->
+    <header class="dashboard-header">
+        <div class="container-fluid">
+            <div class="row align-items-center">
+                <div class="col-md-6">
+                    <h1 class="header-title">
+                        <i class="fas fa-water"></i> Real-Time Intelligent Sewage Tunnel Safety Dashboard
+                    </h1>
+                </div>
+                <div class="col-md-6 text-end">
+                    <div class="system-status">
+                        <span class="status-indicator" id="systemStatus"></span>
+                        <span class="status-text">System Status: <span id="statusText">Connecting...</span></span>
+                    </div>
+                    <div class="last-updated">Last Updated: <span id="lastUpdated">--:--:--</span></div>
+                </div>
+            </div>
+        </div>
+    </header>
+
+    <!-- MAIN DASHBOARD CONTAINER -->
+    <main class="dashboard-main">
+        <div class="container-fluid">
+            <!-- SECTION 2: REAL-TIME GAS PPM CARDS -->
+            <section class="section-gas-cards">
+                <h2 class="section-title">Real-Time Gas Levels</h2>
+                <div class="row g-3">
+                    <!-- Methane Card -->
+                    <div class="col-lg-3 col-md-6">
+                        <div class="gas-card" id="ch4Card">
+                            <div class="gas-card-header">
+                                <h3>Methane (CH₄)</h3>
+                                <span class="trend-arrow" id="ch4Trend">→</span>
+                            </div>
+                            <div class="gas-value" id="ch4Value">0</div>
+                            <div class="gas-unit">PPM</div>
+                            <div class="safe-limit">Safe Limit: <span id="ch4Limit">5000</span> PPM</div>
+                            <div class="status-bar">
+                                <div class="status-fill" id="ch4Fill" style="width: 0%"></div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Hydrogen Sulfide Card -->
+                    <div class="col-lg-3 col-md-6">
+                        <div class="gas-card" id="h2sCard">
+                            <div class="gas-card-header">
+                                <h3>Hydrogen Sulfide (H₂S)</h3>
+                                <span class="trend-arrow" id="h2sTrend">→</span>
+                            </div>
+                            <div class="gas-value" id="h2sValue">0</div>
+                            <div class="gas-unit">PPM</div>
+                            <div class="safe-limit">Safe Limit: <span id="h2sLimit">10</span> PPM</div>
+                            <div class="status-bar">
+                                <div class="status-fill" id="h2sFill" style="width: 0%"></div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Carbon Monoxide Card -->
+                    <div class="col-lg-3 col-md-6">
+                        <div class="gas-card" id="coCard">
+                            <div class="gas-card-header">
+                                <h3>Carbon Monoxide (CO)</h3>
+                                <span class="trend-arrow" id="coTrend">→</span>
+                            </div>
+                            <div class="gas-value" id="coValue">0</div>
+                            <div class="gas-unit">PPM</div>
+                            <div class="safe-limit">Safe Limit: <span id="coLimit">35</span> PPM</div>
+                            <div class="status-bar">
+                                <div class="status-fill" id="coFill" style="width: 0%"></div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Oxygen Card -->
+                    <div class="col-lg-3 col-md-6">
+                        <div class="gas-card" id="o2Card">
+                            <div class="gas-card-header">
+                                <h3>Oxygen (O₂)</h3>
+                                <span class="trend-arrow" id="o2Trend">→</span>
+                            </div>
+                            <div class="gas-value" id="o2Value">0</div>
+                            <div class="gas-unit">%</div>
+                            <div class="safe-limit">Safe Range: 19.5-23.5 %</div>
+                            <div class="status-bar">
+                                <div class="status-fill" id="o2Fill" style="width: 0%"></div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- SECTION 3: RISK INDEX PANEL -->
+            <section class="section-risk-index">
+                <h2 class="section-title">Risk Assessment</h2>
+                <div class="row g-3">
+                    <div class="col-lg-6">
+                        <div class="risk-index-panel">
+                            <h3>Risk Index</h3>
+                            <div class="risk-value" id="riskValue">0%</div>
+                            <div class="progress risk-progress">
+                                <div class="progress-bar" id="riskBar" role="progressbar" style="width: 0%"></div>
+                            </div>
+                            <div class="risk-classification" id="riskClassification">Safe</div>
+                            <div class="risk-legend">
+                                <span class="legend-item"><span class="legend-color safe"></span> Safe (0-30%)</span>
+                                <span class="legend-item"><span class="legend-color moderate"></span> Moderate (30-50%)</span>
+                                <span class="legend-item"><span class="legend-color danger"></span> Danger (50-75%)</span>
+                                <span class="legend-item"><span class="legend-color critical"></span> Critical (75-100%)</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- SECTION 4: EXPOSURE TIME REMAINING -->
+                    <div class="col-lg-6">
+                        <div class="exposure-panel">
+                            <h3>Safe Exposure Time</h3>
+                            <div class="exposure-time" id="exposureTime">∞</div>
+                            <div class="exposure-label">Minutes Remaining</div>
+                            <div class="exposure-details">
+                                <p>Maximum safe duration: <strong id="maxDuration">30</strong> minutes</p>
+                                <p>Elapsed time: <strong id="elapsedTime">0</strong> minutes</p>
+                            </div>
+                            <div id="exposureAlert" class="alert alert-danger mt-3" style="display: none;">
+                                <i class="fas fa-exclamation-triangle"></i> Critical! Less than 2 minutes remaining!
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- SECTION 5: EXPLOSION PROBABILITY -->
+            <section class="section-explosion">
+                <h2 class="section-title">Explosion Risk Assessment</h2>
+                <div class="row g-3">
+                    <div class="col-lg-4">
+                        <div class="explosion-panel">
+                            <h3>Explosion Probability</h3>
+                            <div class="circular-gauge">
+                                <svg viewBox="0 0 120 120" class="gauge-svg">
+                                    <!-- Background circle -->
+                                    <circle cx="60" cy="60" r="50" fill="none" stroke="#333" stroke-width="8"/>
+                                    <!-- Progress arc -->
+                                    <circle id="explosionArc" cx="60" cy="60" r="50" fill="none" stroke="#22d3ee" 
+                                            stroke-width="8" stroke-dasharray="0 314" stroke-dashoffset="0"
+                                            transform="rotate(-90 60 60)"/>
+                                </svg>
+                                <div class="gauge-text">
+                                    <span class="gauge-value" id="explosionValue">0%</span>
+                                </div>
+                            </div>
+                            <div id="explosionAlert" class="alert alert-danger mt-3" style="display: none;">
+                                <i class="fas fa-fire"></i> <strong>WARNING!</strong> Explosion risk exceeds 70%!
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- SECTION 6: SAFETY RECOMMENDATION -->
+                    <div class="col-lg-8">
+                        <div class="recommendation-panel">
+                            <h3>Safety Recommendation</h3>
+                            <div class="recommendation-box" id="recommendationBox">
+                                <div class="recommendation-status" id="recommendationStatus">
+                                    <i class="fas fa-info-circle"></i> Initializing...
+                                </div>
+                            </div>
+                            <div class="recommendation-actions mt-4">
+                                <button class="btn btn-action btn-safe" onclick="alert('Safe - Proceed with caution. All readings within acceptable limits.')">View Details</button>
+                                <button class="btn btn-action btn-warning" onclick="alert('Check current conditions before proceeding.')">Current Status</button>
+                                <button class="btn btn-action btn-danger" onclick="alert('Emergency procedures activated. Evacuate immediately!')">Emergency</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- SECTION 7: ENTRY PERMISSION -->
+            <section class="section-entry">
+                <h2 class="section-title">Entry Authorization</h2>
+                <div class="row g-3">
+                    <div class="col-12">
+                        <div class="entry-permission-box" id="entryPermissionBox">
+                            <div class="entry-icon" id="entryIcon">
+                                <i class="fas fa-exclamation-circle"></i>
+                            </div>
+                            <div class="entry-status" id="entryStatus">
+                                ASSESSING CONDITIONS
+                            </div>
+                            <div class="entry-message" id="entryMessage">
+                                Waiting for data from sensors...
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- SECTION 8: VENTILATION STATUS -->
+            <section class="section-ventilation">
+                <h2 class="section-title">Ventilation System</h2>
+                <div class="row g-3">
+                    <div class="col-lg-4">
+                        <div class="ventilation-panel">
+                            <h3>Fan Status</h3>
+                            <div class="fan-status" id="fanStatus">
+                                <div class="fan-indicator" id="fanIndicator"></div>
+                                <div class="fan-text" id="fanText">OFF</div>
+                            </div>
+                            <button class="btn btn-sm btn-secondary mt-3 w-100" onclick="toggleFan()">Toggle Fan</button>
+                        </div>
+                    </div>
+
+                    <div class="col-lg-4">
+                        <div class="ventilation-panel">
+                            <h3>Purge Timer</h3>
+                            <div class="purge-timer" id="purgeTimer">00:00</div>
+                            <p class="text-muted text-center mt-2">Automatic purge cycle</p>
+                            <button class="btn btn-sm btn-secondary mt-3 w-100" onclick="resetPurge()">Reset Timer</button>
+                        </div>
+                    </div>
+
+                    <div class="col-lg-4">
+                        <div class="ventilation-panel">
+                            <h3>Control Mode</h3>
+                            <div class="control-mode" id="controlMode">
+                                <span class="badge badge-auto">AUTO</span>
+                            </div>
+                            <p class="text-muted text-center mt-2">System actively monitoring</p>
+                            <button class="btn btn-sm btn-secondary mt-3 w-100" onclick="toggleControlMode()">Switch Mode</button>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- SECTION 9: PREDICTIVE ALERT -->
+            <section class="section-alerts">
+                <div id="predictiveAlert" class="predictive-alert-banner" style="display: none;">
+                    <i class="fas fa-exclamation-triangle"></i>
+                    <span id="predictiveAlertText">Danger level expected in X minutes</span>
+                </div>
+            </section>
+
+            <!-- SECTION 10: HISTORICAL DATA GRAPHS -->
+            <section class="section-graphs">
+                <h2 class="section-title">Historical Data Analysis</h2>
+                
+                <div class="row g-3">
+                    <!-- Methane Graph -->
+                    <div class="col-lg-6">
+                        <div class="graph-container">
+                            <h4>Methane (CH₄) - Last 24 Hours</h4>
+                            <canvas id="ch4Chart"></canvas>
+                        </div>
+                    </div>
+
+                    <!-- Hydrogen Sulfide Graph -->
+                    <div class="col-lg-6">
+                        <div class="graph-container">
+                            <h4>Hydrogen Sulfide (H₂S) - Last 24 Hours</h4>
+                            <canvas id="h2sChart"></canvas>
+                        </div>
+                    </div>
+
+                    <!-- Carbon Monoxide Graph -->
+                    <div class="col-lg-6">
+                        <div class="graph-container">
+                            <h4>Carbon Monoxide (CO) - Last 24 Hours</h4>
+                            <canvas id="coChart"></canvas>
+                        </div>
+                    </div>
+
+                    <!-- Risk Index Trend Graph -->
+                    <div class="col-lg-6">
+                        <div class="graph-container">
+                            <h4>Risk Index Trend - Last 24 Hours</h4>
+                            <canvas id="riskChart"></canvas>
+                        </div>
+                    </div>
+                </div>
+            </section>
+        </div>
+    </main>
+
+    <!-- FOOTER -->
+    <footer class="dashboard-footer">
+        <div class="container-fluid">
+            <div class="row">
+                <div class="col-md-6">
+                    <p>&copy; 2026 IoT Sewage Tunnel Gas Safety System. All rights reserved.</p>
+                </div>
+                <div class="col-md-6 text-end">
+                    <a href="#" onclick="downloadReport()">Download Report</a> | 
+                    <a href="#" onclick="toggleDarkMode()">Dark/Light Mode</a>
+                </div>
+            </div>
+        </div>
+    </footer>
+
+    <!-- Scripts -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/bootstrap/5.3.0/js/bootstrap.bundle.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/3.9.1/chart.min.js"></script>
+    <script src="script.js"></script>
+</body>
+</html>

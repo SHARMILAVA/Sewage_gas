@@ -1,0 +1,64 @@
+{
+  "notification": {
+    "telegram": {
+      "enabled": false,
+      "botToken": "YOUR_BOT_TOKEN_HERE",
+      "chatId": "YOUR_CHAT_ID_HERE",
+      "comment": "Get Bot Token from @BotFather and Chat ID from @userinfobot on Telegram"
+    },
+    "email": {
+      "enabled": false,
+      "service": "gmail",
+      "user": "your-email@gmail.com",
+      "password": "your-gmail-app-password",
+      "recipient": "your-mobile-email@gmail.com",
+      "comment": "Use Gmail App Password, not your regular password. Requires: npm install nodemailer"
+    },
+    "pushover": {
+      "enabled": false,
+      "userKey": "YOUR_USER_KEY",
+      "appToken": "YOUR_APP_TOKEN",
+      "comment": "Get credentials from pushover.net (requires $5 app purchase)"
+    },
+    "alertCooldown": 5,
+    "alertCooldownComment": "Minimum minutes between alerts (prevents spam)"
+  },
+  "safetyLimits": {
+    "CH4": {
+      "value": 5000,
+      "unit": "PPM",
+      "description": "Methane safe limit"
+    },
+    "H2S": {
+      "value": 10,
+      "unit": "PPM",
+      "description": "Hydrogen Sulfide safe limit"
+    },
+    "CO": {
+      "value": 35,
+      "unit": "PPM",
+      "description": "Carbon Monoxide safe limit"
+    },
+    "O2_MIN": {
+      "value": 19.5,
+      "unit": "%",
+      "description": "Oxygen minimum percentage"
+    },
+    "O2_MAX": {
+      "value": 23.5,
+      "unit": "%",
+      "description": "Oxygen maximum percentage"
+    },
+    "RISK_INDEX": {
+      "value": 50,
+      "unit": "%",
+      "description": "Risk index alert threshold"
+    }
+  },
+  "monitoring": {
+    "checkInterval": 60,
+    "checkIntervalComment": "Seconds between safety checks (default: 60)",
+    "enableAutoAlerts": true,
+    "enableAutoAlertsComment": "Automatically send alerts when unsafe conditions detected"
+  }
+}
